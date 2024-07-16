@@ -1,4 +1,5 @@
 from codegenerator.laravel_11 import utilities
+# from pprint import pprint
 
 
 def get_model_file_content(ln, ci, belongs_to_list, has_many_list, has_many_through_list ):
@@ -12,17 +13,15 @@ use Illuminate\\Database\\Eloquent\\Model;
 
     if len(belongs_to_list) > 0:
         model_code += """use Illuminate\\Database\\Eloquent\\Relations\\BelongsTo;
-        """
+"""
 
     if len(has_many_list) > 0:
         model_code += """use Illuminate\\Database\\Eloquent\\Relations\\HasMany;
-        """
+"""
 
     if len(has_many_through_list) > 0:
         model_code += """use Illuminate\\Database\\Eloquent\\Relations\\BelongsToMany;
-        """
-
-
+"""
     model_code += f"""
 
 class {ln.model_class_name} extends Model
@@ -39,20 +38,24 @@ class {ln.model_class_name} extends Model
         for many_related_table in has_many_list:
             model_code += (f"""
             
-        public function {many_related_table}(): HasMany
-        {{
-            return $this->hasMany({utilities.any_case_to_pascal_case(utilities.singular(many_related_table))}::class);
-        }}
+    public function {many_related_table}(): HasMany
+    {{
+        return $this->hasMany({utilities.any_case_to_pascal_case(utilities.singular(many_related_table))}::class);
+    }}
             """)
 
     if len(belongs_to_list) > 0:
         for belongs_to_table in belongs_to_list:
+            if isinstance(utilities.singular(belongs_to_table), bool):
+                singular_table_name = belongs_to_table
+            else:
+                singular_table_name = utilities.singular(belongs_to_table)
             model_code += (f"""
             
-        public function {belongs_to_table}(): BelongsTo
-        {{
-            return $this->belongsTo({utilities.any_case_to_pascal_case(utilities.singular(belongs_to_table))}::class);
-        }}
+    public function {singular_table_name}(): BelongsTo
+    {{
+        return $this->belongsTo({utilities.any_case_to_pascal_case(singular_table_name)}::class);
+    }}
             """)
 
     if len(has_many_through_list) > 0:
@@ -62,12 +65,16 @@ class {ln.model_class_name} extends Model
             else:
                 foreign_table_model_name = utilities.singular(many_to_many_item['table'])
 
+            if len(many_to_many_item['columns']) > 0:
+                with_pivot = f"->withPivot({many_to_many_item['columns']})"
+            else:
+                with_pivot = ''
             model_code += (f"""
             
-        public function {many_to_many_item['table']}(): BelongsToMany
-        {{
-            return $this->belongsToMany({utilities.any_case_to_pascal_case(foreign_table_model_name)}::class);
-        }}
+    public function {many_to_many_item['table']}(): BelongsToMany
+    {{
+        return $this->belongsToMany({utilities.any_case_to_pascal_case(foreign_table_model_name)}::class){with_pivot};
+    }}
             """)
 
     model_code += """

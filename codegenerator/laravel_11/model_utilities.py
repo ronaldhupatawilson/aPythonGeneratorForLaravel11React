@@ -2,6 +2,13 @@ from mysql.connector.connection import MySQLConnection
 from typing import List, Dict, Any
 import inflect
 
+#######################################################################################
+#
+# there is a fair way to go on this - specifically explicitly placing local key names
+#  and managing multiple belongs to (e.g. createdBy_user_id, updatedBy_user_id)
+#
+#######################################################################################
+
 p = inflect.engine()
 
 
@@ -12,14 +19,16 @@ def has_many(connection: MySQLConnection, table_name: str) -> List[str]:
 
     # Query for tables based on naming convention
     query1 = """
-    SELECT DISTINCT TABLE_NAME
-    FROM INFORMATION_SCHEMA.COLUMNS
+    SELECT DISTINCT COLUMNS.TABLE_NAME
+    FROM INFORMATION_SCHEMA.COLUMNS JOIN INFORMATION_SCHEMA.TABLES ON (COLUMNS.TABLE_NAME = TABLES.TABLE_NAME AND COLUMNS.TABLE_SCHEMA = TABLES.TABLE_SCHEMA)
     WHERE (COLUMN_NAME = %s OR COLUMN_NAME LIKE %s)
-    AND TABLE_NAME != %s
-    AND TABLE_NAME NOT LIKE '%%\_%%'
+    AND COLUMNS.TABLE_NAME != %s
+    AND COLUMNS.TABLE_NAME NOT LIKE '%%\\_%%'
+    AND COLUMNS.TABLE_SCHEMA = %s
+    AND TABLES.TABLE_TYPE = 'BASE TABLE'
     """
 
-    cursor.execute(query1, (f"{singular}_id", f"%_{singular}_id", table_name))
+    cursor.execute(query1, (f"{singular}_id", f"%_{singular}_id", table_name, connection.database))
     results = set(row[0] for row in cursor.fetchall())
 
     # Query for tables explicitly referencing this table through foreign keys
@@ -28,10 +37,11 @@ def has_many(connection: MySQLConnection, table_name: str) -> List[str]:
     FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
     WHERE REFERENCED_TABLE_NAME = %s
     AND TABLE_NAME != %s
-    AND TABLE_NAME NOT LIKE '%%\_%%'
+    AND TABLE_NAME NOT LIKE '%%\\_%%'
+    AND TABLE_SCHEMA = %s
     """
 
-    cursor.execute(query2, (table_name, table_name))
+    cursor.execute(query2, (table_name, table_name, connection.database))
     fk_results = set(row[0] for row in cursor.fetchall())
 
     # Combine results
@@ -47,12 +57,14 @@ def belongs_to(connection: MySQLConnection, table_name: str) -> List[str]:
     # Query for tables based on naming convention
     query1 = """
     SELECT COLUMN_NAME
-    FROM INFORMATION_SCHEMA.COLUMNS
-    WHERE TABLE_NAME = %s
-    AND (COLUMN_NAME LIKE '%%\_id' AND COLUMN_NAME != 'id')
+    FROM INFORMATION_SCHEMA.COLUMNS JOIN INFORMATION_SCHEMA.TABLES ON (COLUMNS.TABLE_NAME = TABLES.TABLE_NAME AND COLUMNS.TABLE_SCHEMA = TABLES.TABLE_SCHEMA)
+    WHERE COLUMNS.TABLE_NAME = %s
+    AND (COLUMN_NAME LIKE '%%\\_id' AND COLUMN_NAME != 'id')
+    AND COLUMNS.TABLE_SCHEMA = %s
+    AND TABLES.TABLE_TYPE = 'BASE TABLE'
     """
 
-    cursor.execute(query1, (table_name,))
+    cursor.execute(query1, (table_name, connection.database))
 
     results = set()
     for row in cursor.fetchall():
@@ -69,9 +81,10 @@ def belongs_to(connection: MySQLConnection, table_name: str) -> List[str]:
     FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
     WHERE TABLE_NAME = %s
     AND REFERENCED_TABLE_NAME IS NOT NULL
+    AND TABLE_SCHEMA = %s
     """
 
-    cursor.execute(query2, (table_name,))
+    cursor.execute(query2, (table_name, connection.database))
     fk_results = set(row[0] for row in cursor.fetchall())
 
     # Combine results
@@ -85,12 +98,15 @@ def get_pivot_tables(connection: MySQLConnection, table_name: str) -> List[str]:
     cursor = connection.cursor()
 
     query = """
-    SELECT TABLE_NAME
-    FROM INFORMATION_SCHEMA.TABLES
-    WHERE TABLE_NAME LIKE %s OR TABLE_NAME LIKE %s
+    SELECT DISTINCT TABLE_NAME
+    FROM INFORMATION_SCHEMA.TABLES 
+    WHERE ((TABLE_NAME LIKE %s )
+    OR (TABLE_NAME LIKE %s ))
+    AND TABLE_SCHEMA = %s
+    AND TABLE_TYPE = 'BASE TABLE'
     """
 
-    cursor.execute(query, (f"{table_name}_%", f"%_{table_name}"))
+    cursor.execute(query, (f"{table_name}\\_%", f"%\\_{table_name}", connection.database))
 
     results = [row[0] for row in cursor.fetchall()]
 
@@ -109,45 +125,27 @@ def has_many_through(connection: MySQLConnection, table_name: str, excluded_colu
     for pivot_table in pivot_tables:
         query = """
         SELECT COLUMN_NAME
-        FROM INFORMATION_SCHEMA.COLUMNS
-        WHERE TABLE_NAME = %s
+        FROM INFORMATION_SCHEMA.COLUMNS JOIN INFORMATION_SCHEMA.TABLES ON (COLUMNS.TABLE_NAME = TABLES.TABLE_NAME AND COLUMNS.TABLE_SCHEMA = TABLES.TABLE_SCHEMA)
+        WHERE COLUMNS.TABLE_NAME = %s
+        AND COLUMNS.TABLE_SCHEMA = %s
+        AND TABLES.TABLE_TYPE = 'BASE TABLE'
         """
-        cursor.execute(query, (pivot_table,))
+        cursor.execute(query, (pivot_table, connection.database))
         columns = [row[0] for row in cursor.fetchall()]
+
+        other_table_name = pivot_table.replace(table_name, '').replace('_', '').strip()
+
+        other_table_name_singular = p.singular_noun(other_table_name)
 
         other_columns = [col for col in columns
                          if col not in excluded_columns
                          and col != f"{singular}_id"
-                         and not (col.endswith('_id') and col.split('_')[-2] == singular)]
+                         and col != f"{other_table_name_singular}_id"]
 
-        if other_columns:
-            other_table_parts = pivot_table.replace(table_name, '').replace('_', '').strip()
-            if not other_table_parts:
-                other_table_parts = pivot_table.replace(f"{table_name}_", '').replace(f"_{table_name}", '')
-            other_table = p.plural(other_table_parts)
-
-            results.append({
-                "table": other_table,
+        results.append({
+                "table": other_table_name,
                 "columns": other_columns
             })
 
     cursor.close()
     return results
-#
-# # Example usage:
-# if __name__ == "__main__":
-#     # Replace with your actual database connection details
-#     connection = mysql.connector.connect(
-#         host="localhost",
-#         user="yourusername",
-#         password="yourpassword",
-#         database="yourdatabase"
-#     )
-#
-#     try:
-#         print(hasMany(connection, "users"))
-#         print(belongsTo(connection, "users"))
-#         print(get_pivot_tables(connection, "users"))
-#         print(hasManyThrough(connection, "users", ["created_at", "updated_at"]))
-#     finally:
-#         connection.close()

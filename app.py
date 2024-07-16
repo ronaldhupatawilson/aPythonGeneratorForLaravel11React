@@ -95,7 +95,7 @@ def main():
     completed_tables = []
     default_output_folder_path = 'c:\\projects\\reactGeneratorOutput\\' #os.path.dirname(os.path.realpath(__file__))+'\\output\\'
     default_ignore_tables = ['failed_jobs', 'migrations', 'password_reset_tokens', 'personal_access_tokens', 'users']
-    default_ignore_columns = ['id','user_id', 'created_at', 'updated_at', 'deleted_at']
+    default_ignore_columns = ['id','user_id', 'created_at', 'updated_at', 'deleted_at','createdBy_user_id','lastUpdatedBy_user_id','lastUpdatedByReal_user_id']
     default_cache_system = 'redis'
     default_use_inertia = 'true'
 
