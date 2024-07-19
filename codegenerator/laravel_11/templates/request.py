@@ -9,15 +9,15 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class {ln.request_class_name} extends FormRequest
 {{
-    public function authorize()
+    public function authorize() : bool
     {{
         return true;
     }}
 
-    public function rules()
+    public function rules() : array
     {{
         $method = $this->method();
-        if($method == 'PUT')
+        if($method == 'PATCH')
         {{
             return [
 {ci.request_validation_fields}

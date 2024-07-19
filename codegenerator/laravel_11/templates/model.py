@@ -31,30 +31,38 @@ class {ln.model_class_name} extends Model
     protected $table = '{ln.tn}';
     
     protected $fillable = [{ci.model_fillable_fields}];
+
+    /**
+     * Any columns that should be hidden for serialization - place them in this array and uncomment.
+     */
+    /*protected $hidden = [{ci.model_fillable_fields}];*/
     
     """
 
     if len(has_many_list) > 0:
         for many_related_table in has_many_list:
+            replace_text = f"{ln.lcs}_id"
+            suffix = many_related_table['column_name'].replace(replace_text, '')
             model_code += (f"""
             
-    public function {many_related_table}(): HasMany
+    public function {many_related_table['table_name'].strip('_')}{suffix}(): HasMany
     {{
-        return $this->hasMany({utilities.any_case_to_pascal_case(utilities.singular(many_related_table))}::class);
+        return $this->hasMany({utilities.any_case_to_pascal_case(utilities.singular(many_related_table['table_name']))}::class, '{many_related_table['column_name']}');
     }}
             """)
 
     if len(belongs_to_list) > 0:
         for belongs_to_table in belongs_to_list:
-            if isinstance(utilities.singular(belongs_to_table), bool):
-                singular_table_name = belongs_to_table
+            if isinstance(utilities.singular(belongs_to_table['table_name']), bool):
+                singular_table_name = belongs_to_table['table_name']
             else:
-                singular_table_name = utilities.singular(belongs_to_table)
+                singular_table_name = utilities.singular(belongs_to_table['table_name'])
+            function_name = utilities.any_case_to_camel_case(belongs_to_table['column_name'].replace('_id', ''))
             model_code += (f"""
             
-    public function {singular_table_name}(): BelongsTo
+    public function {function_name}(): BelongsTo
     {{
-        return $this->belongsTo({utilities.any_case_to_pascal_case(singular_table_name)}::class);
+        return $this->belongsTo({utilities.any_case_to_pascal_case(singular_table_name)}::class, '{belongs_to_table['column_name']}');
     }}
             """)
 

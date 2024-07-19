@@ -2,13 +2,6 @@ from mysql.connector.connection import MySQLConnection
 from typing import List, Dict, Any
 import inflect
 
-#######################################################################################
-#
-# there is a fair way to go on this - specifically explicitly placing local key names
-#  and managing multiple belongs to (e.g. createdBy_user_id, updatedBy_user_id)
-#
-#######################################################################################
-
 p = inflect.engine()
 
 
@@ -19,7 +12,7 @@ def has_many(connection: MySQLConnection, table_name: str) -> List[str]:
 
     # Query for tables based on naming convention
     query1 = """
-    SELECT DISTINCT COLUMNS.TABLE_NAME
+    SELECT DISTINCT COLUMNS.TABLE_NAME, COLUMNS.COLUMN_NAME
     FROM INFORMATION_SCHEMA.COLUMNS JOIN INFORMATION_SCHEMA.TABLES ON (COLUMNS.TABLE_NAME = TABLES.TABLE_NAME AND COLUMNS.TABLE_SCHEMA = TABLES.TABLE_SCHEMA)
     WHERE (COLUMN_NAME = %s OR COLUMN_NAME LIKE %s)
     AND COLUMNS.TABLE_NAME != %s
@@ -29,34 +22,35 @@ def has_many(connection: MySQLConnection, table_name: str) -> List[str]:
     """
 
     cursor.execute(query1, (f"{singular}_id", f"%_{singular}_id", table_name, connection.database))
-    results = set(row[0] for row in cursor.fetchall())
+    results = set((row[0], row[1]) for row in cursor.fetchall())
 
     # Query for tables explicitly referencing this table through foreign keys
     query2 = """
-    SELECT DISTINCT TABLE_NAME
-    FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
+    SELECT DISTINCT KEY_COLUMN_USAGE.TABLE_NAME, KEY_COLUMN_USAGE.COLUMN_NAME
+    FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE JOIN INFORMATION_SCHEMA.TABLES ON (KEY_COLUMN_USAGE.TABLE_NAME = TABLES.TABLE_NAME AND KEY_COLUMN_USAGE.TABLE_SCHEMA = TABLES.TABLE_SCHEMA)
     WHERE REFERENCED_TABLE_NAME = %s
-    AND TABLE_NAME != %s
-    AND TABLE_NAME NOT LIKE '%%\\_%%'
-    AND TABLE_SCHEMA = %s
+    AND KEY_COLUMN_USAGE.TABLE_NAME != %s
+    AND KEY_COLUMN_USAGE.TABLE_NAME NOT LIKE '%%\\_%%'
+    AND KEY_COLUMN_USAGE.TABLE_SCHEMA = %s
+    AND TABLES.TABLE_TYPE = 'BASE TABLE'
     """
 
     cursor.execute(query2, (table_name, table_name, connection.database))
-    fk_results = set(row[0] for row in cursor.fetchall())
+    fk_results = set((row[0], row[1]) for row in cursor.fetchall())
 
     # Combine results
     results.update(fk_results)
 
     cursor.close()
-    return list(results)
+    return [{"table_name": table, "column_name": column} for table, column in results]
 
 
-def belongs_to(connection: MySQLConnection, table_name: str) -> List[str]:
-    cursor = connection.cursor()
+def belongs_to(connection: MySQLConnection, table_name: str) -> List[Dict[str, str]]:
+    cursor = connection.cursor(dictionary=True)
 
     # Query for tables based on naming convention
     query1 = """
-    SELECT COLUMN_NAME
+    SELECT DISTINCT COLUMNS.TABLE_NAME as TABLE_NAME, COLUMN_NAME
     FROM INFORMATION_SCHEMA.COLUMNS JOIN INFORMATION_SCHEMA.TABLES ON (COLUMNS.TABLE_NAME = TABLES.TABLE_NAME AND COLUMNS.TABLE_SCHEMA = TABLES.TABLE_SCHEMA)
     WHERE COLUMNS.TABLE_NAME = %s
     AND (COLUMN_NAME LIKE '%%\\_id' AND COLUMN_NAME != 'id')
@@ -66,32 +60,85 @@ def belongs_to(connection: MySQLConnection, table_name: str) -> List[str]:
 
     cursor.execute(query1, (table_name, connection.database))
 
-    results = set()
+    results = []
     for row in cursor.fetchall():
-        column_name = row[0]
+        column_name = row['COLUMN_NAME']
         if '_' in column_name:
             referenced_table = p.plural(column_name.split('_')[-2])
         else:
             referenced_table = p.plural(column_name[:-3])
-        results.add(referenced_table)
+        results.append({"table_name": referenced_table, "column_name": column_name})
 
     # Query for tables explicitly referenced by this table through foreign keys
     query2 = """
-    SELECT DISTINCT REFERENCED_TABLE_NAME
-    FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
-    WHERE TABLE_NAME = %s
-    AND REFERENCED_TABLE_NAME IS NOT NULL
-    AND TABLE_SCHEMA = %s
+    SELECT DISTINCT KEY_COLUMN_USAGE.REFERENCED_TABLE_NAME AS TABLE_NAME, COLUMN_NAME
+    FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE JOIN INFORMATION_SCHEMA.TABLES ON (KEY_COLUMN_USAGE.TABLE_NAME = TABLES.TABLE_NAME AND KEY_COLUMN_USAGE.TABLE_SCHEMA = TABLES.TABLE_SCHEMA)
+    WHERE KEY_COLUMN_USAGE.TABLE_NAME = %s
+    AND KEY_COLUMN_USAGE.REFERENCED_TABLE_NAME IS NOT NULL
+    AND KEY_COLUMN_USAGE.TABLE_SCHEMA = %s
+    AND TABLES.TABLE_TYPE = 'BASE TABLE'
     """
 
     cursor.execute(query2, (table_name, connection.database))
-    fk_results = set(row[0] for row in cursor.fetchall())
+    fk_results = [{"table_name": row['TABLE_NAME'], "column_name": row['COLUMN_NAME']} for row in cursor.fetchall()]
 
     # Combine results
-    results.update(fk_results)
+    results.extend(fk_results)
+
+    # Remove duplicates while preserving order
+    seen = set()
+    unique_results = []
+    for item in results:
+        item_tuple = tuple(item.items())
+        if item_tuple not in seen:
+            seen.add(item_tuple)
+            unique_results.append(item)
 
     cursor.close()
-    return list(results)
+    return unique_results
+
+# def belongs_to(connection: MySQLConnection, table_name: str) -> List[str]:
+#     cursor = connection.cursor()
+#
+#     # Query for tables based on naming convention
+#     query1 = """
+#     SELECT DISTINCT COLUMNS.TABLE_NAME as TABLE_NAME, COLUMN_NAME
+#     FROM INFORMATION_SCHEMA.COLUMNS JOIN INFORMATION_SCHEMA.TABLES ON (COLUMNS.TABLE_NAME = TABLES.TABLE_NAME AND COLUMNS.TABLE_SCHEMA = TABLES.TABLE_SCHEMA)
+#     WHERE COLUMNS.TABLE_NAME = %s
+#     AND (COLUMN_NAME LIKE '%%\\_id' AND COLUMN_NAME != 'id')
+#     AND COLUMNS.TABLE_SCHEMA = %s
+#     AND TABLES.TABLE_TYPE = 'BASE TABLE'
+#     """
+#
+#     cursor.execute(query1, (table_name, connection.database))
+#
+#     results = set()
+#     for row in cursor.fetchall():
+#         column_name = row[0]
+#         if '_' in column_name:
+#             referenced_table = p.plural(column_name.split('_')[-2])
+#         else:
+#             referenced_table = p.plural(column_name[:-3])
+#         results.add(referenced_table)
+#
+#     # Query for tables explicitly referenced by this table through foreign keys
+#     query2 = """
+#     SELECT DISTINCT KEY_COLUMN_USAGE.REFERENCED_TABLE_NAME AS TABLE_NAME, COLUMN_NAME
+#     FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE JOIN INFORMATION_SCHEMA.TABLES ON (KEY_COLUMN_USAGE.TABLE_NAME = TABLES.TABLE_NAME AND KEY_COLUMN_USAGE.TABLE_SCHEMA = TABLES.TABLE_SCHEMA)
+#     WHERE KEY_COLUMN_USAGE.TABLE_NAME = %s
+#     AND KEY_COLUMN_USAGE.REFERENCED_TABLE_NAME IS NOT NULL
+#     AND KEY_COLUMN_USAGE.TABLE_SCHEMA = %s
+#     AND TABLES.TABLE_TYPE = 'BASE TABLE'
+#     """
+#
+#     cursor.execute(query2, (table_name, connection.database))
+#     fk_results = set(row[0] for row in cursor.fetchall())
+#
+#     # Combine results
+#     results.update(fk_results)
+#
+#     cursor.close()
+#     return list(results)
 
 
 def get_pivot_tables(connection: MySQLConnection, table_name: str) -> List[str]:

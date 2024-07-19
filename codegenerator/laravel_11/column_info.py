@@ -20,3 +20,5 @@ class ColumnInfo:
         self.filter_column_map_arr = utilities.get_filter_column_map_arr(columns, ignore_columns)
         self.filter_safe_parms_arr = utilities.get_filter_safe_parms_arr(columns, ignore_columns)
         self.prepare_for_validation = utilities.get_prepare_for_validation(columns, ignore_columns)
+        self.has_dates_or_times = utilities.has_column_with_data_or_time_like_data_type(columns)
+        self.has_storage_path = utilities.has_column_name_ending_in_path(columns)

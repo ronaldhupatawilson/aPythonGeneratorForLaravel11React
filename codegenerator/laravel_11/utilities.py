@@ -1,8 +1,17 @@
 import inflect
 import re
+from pprint import pprint
 
 
 p = inflect.engine()
+
+
+def uncapitalize_first_letter(s):
+    return s[:1].lower() + s[1:] if s else s
+
+
+def capitalize_first_letter(s):
+    return s[:1].upper() + s[1:] if s else s
 
 
 def singular(noun):
@@ -49,6 +58,7 @@ def any_case_to_pascal_case(word):
     trimmed = hyphens_removed.strip()
     spaced = trimmed.title()
     return spaced.replace(" ", "")
+
 
 def any_case_to_camel_case(word):
     underscores_removed = word.replace("_", " ")
@@ -232,7 +242,21 @@ def mysql_field_to_validation_mapper(column):
         return_string += "|numeric"
     if column['DATA_TYPE'] == 'tinyint':
         return_string += "|min:0|max:1"
+    second_last = pluralize_second_to_last(column['COLUMN_NAME'])
+    if second_last != column['COLUMN_NAME']:
+        return_string += f"|exists:{second_last},id"
+    else:
+        if column['FK_TABLE'] is not None:
+            return_string += f"|exists:{column['FK_TABLE']},{column['FK_COLUMN']}"
     return return_string
+
+
+def pluralize_second_to_last(s):
+    p = inflect.engine()
+    parts = s.split('_')
+    if len(parts) >= 2 and s[-3:] == '_id':
+        return p.plural(parts[-2])
+    return s
 
 
 def get_column_request_validation_field_code(columns, ignore_columns):
@@ -339,7 +363,27 @@ def get_comma_separated_list_of_column_names(columns, ignore_columns):
     return return_string
 
 
+def has_column_name_ending_in_path(list_of_dicts):
+    for item in list_of_dicts:
+        if isinstance(item, dict) and 'COLUMN_NAME' in item:
+            column_name = item['COLUMN_NAME']
+            if column_name.endswith('_path') or column_name.endswith('Path'):
+                return True
+    return False
+
+
+def has_column_with_data_or_time_like_data_type(list_of_dicts):
+    time_types = {'date', 'datetime', 'timestamp', 'time'}
+    for item in list_of_dicts:
+        if isinstance(item, dict) and 'DATA_TYPE' in item:
+            data_type = item['DATA_TYPE'].lower()
+            if data_type in time_types:
+                return True
+    return False
+
+
 def get_resource_array(columns, ignore_columns):
+    time_types = {'date', 'datetime', 'timestamp', 'time'}
     # 'id' => $this->id,
     # 'name' => $this->name,
     # 'email' => $this->email,
@@ -350,7 +394,21 @@ def get_resource_array(columns, ignore_columns):
         prefix = ''
         if column['COLUMN_NAME'] in ignore_columns:
             prefix = '//'
-        return_string += " " * 12 + f"{prefix}'{any_case_to_camel_case(column['COLUMN_NAME'])}' => $this->{column['COLUMN_NAME']},\n"
+        return_string += " " * 12 + f"{prefix}'{any_case_to_camel_case(column['COLUMN_NAME'])}' => "
+        if column['DATA_TYPE'] in time_types:
+            date_time_format = 'Y-m-d H:i:s.u'
+            if column['DATA_TYPE'] == 'date':
+                date_time_format = 'Y-m-d'
+            if column['DATA_TYPE'] == 'datetime':
+                date_time_format = 'Y-m-d H:i:s'
+            if column['DATA_TYPE'] == 'time':
+                date_time_format = 'H:i:s'
+            return_string += f"(new Carbon($this->{column['COLUMN_NAME']}))->format('{date_time_format}'),\n"
+        else:
+            if column['COLUMN_NAME'].endswith('_path') or column['COLUMN_NAME'].endswith('Path'):
+                return_string += f"$this->{column['COLUMN_NAME']} && !(str_starts_with($this->{column['COLUMN_NAME']}, 'http')) ? Storage::url($this->{column['COLUMN_NAME']}) : '',\n"
+            else:
+                return_string += f"$this->{column['COLUMN_NAME']},\n"
     return return_string
 
 

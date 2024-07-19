@@ -1,114 +1,145 @@
 # ln=laravel names, ci= column info
-def get_react_component_create_content(ln, ci):
-    code = f"""<template>
-  <div>
-    <form v-if="mode === 'add'">
-      <div class="mb-4">
-        <label for="questionType">Question Type</label>
-        <input type="text" id="questionType" v-model="questionType" class="w-full form-control" />
-        <div class="invalid-feedback" v-if="errors.questionType">
-          {{{{ errors.questionType }}}}
-        </div>
-      </div>
-      <div class="mb-4">
-        <label for="oldCode">Old Code</label>
-        <input type="text" id="oldCode" v-model="oldCode" class="w-full form-control" />
-        <div class="invalid-feedback" v-if="errors.oldCode">
-          {{{{ errors.oldCode }}}}
-        </div>
-      </div>
-      <button class="btn btn-primary" @click="addQuestionType">Add Question Type</button>
-    </form>
-    <form v-if="mode === 'edit'">
-      <div class="mb-4">
-        <label for="questionType">Question Type</label>
-        <input type="text" id="questionType" v-model="questionType" class="w-full form-control" />
-        <div class="invalid-feedback" v-if="errors.questionType">
-          {{{{ errors.questionType }}}}
-        </div>
-      </div>
-      <div class="mb-4">
-        <label for="oldCode">Old Code</label>
-        <input type="text" id="oldCode" v-model="oldCode" class="w-full form-control" />
-        <div class="invalid-feedback" v-if="errors.oldCode">
-          {{{{ errors.oldCode }}}}
-        </div>
-      </div>
-      <button class="btn btn-primary" @click="updateQuestionType">Update Question Type</button>
-    </form>
-    <div class="form-text text-gray-500">
-      <i class="far fa-info-circle" />
-      Hover over a label to see a help message.
-    </div>
-  </div>
-</template>
+def get_create_code(ln, ci, belongs_to_list, has_many_list, has_many_through_list):
+    code = f"""import React from 'react';
+import {{ useForm, Head, Link }} from '@inertiajs/react';
+import {{ 
+  TextField, 
+  Button, 
+  FormControl, 
+  InputLabel, 
+  Select, 
+  MenuItem, 
+  Typography,
+  Box,
+  Container,
+  Paper
+}} from '@mui/material';
+import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 
-<script>
-import {{ defineComponent, ref }} from 'vue';
-import {{ usePage }} from '@inertiajs/vue';
-
-export default defineComponent({{
-  name: 'QuestionTypeForm',
-
-  props: {{
-    mode: {{
-      type: String,
-      required: true,
-    }},
-  }},
-
-  setup() {{
-    const questionType = ref('');
-    const oldCode = ref('');
-    const errors = ref({{}});
-
-    const {{ route }} = usePage();
-
-    const addQuestionType = () => {{
-      route.post('/question-types', {{
-        questionType: questionType.value,
-        oldCode: oldCode.value,
-      }}).then(() => {{
-        errors.value = {{}};
-      }});
-    }};
-
-    const updateQuestionType = () => {{
-      route.put('/question-types/' + questionType.value, {{
-        questionType: questionType.value,
-        oldCode: oldCode.value,
-      }}).then(() => {{
-        errors.value = {{}};
-      }});
-    }};
-
-    return {{
-      questionType,
-      oldCode,
-      errors,
-      addQuestionType,
-      updateQuestionType,
-    }};
-  }},
-}});
-</script>
-
-<style>
-form {{
-  width: 500px;
+interface CreateProps {{
+  auth: {{
+    user: any;
+  }};
 }}
 
-.invalid-feedback {{
-  color: red;
+interface FormData {{
+  image: File | null;
+  name: string;
+  status: string;
+  description: string;
+  due_date: string;
 }}
 
-.form-text {{
-  font-size: 14px;
-  margin-top: 10px;
-}}
+export default function Create({{ auth }}: CreateProps) {{
+  const {{ data, setData, post, errors }} = useForm<FormData>({{
+    image: null,
+    name: '',
+    status: '',
+    description: '',
+    due_date: '',
+  }});
 
-.far {{
-  cursor: pointer;
-}}
-</style>"""
+  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {{
+    e.preventDefault();
+    post(route('project.store'));
+  }};
+
+  return (
+    <AuthenticatedLayout
+      user={{auth.user}}
+      header={{
+        <Box className="flex justify-between items-center">
+          <Typography variant="h6" className="text-gray-800 dark:text-gray-200">
+            Create new Project
+          </Typography>
+        </Box>
+      }}
+    >
+      <Head title="Projects" />
+
+      <Container className="py-12">
+        <Paper className="p-4 sm:p-8 bg-white dark:bg-gray-800 shadow sm:rounded-lg">
+          <form onSubmit={{onSubmit}}>
+            <Box className="mb-4">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={{(e) => setData('image', e.target.files?.[0] || null)}}
+                className="hidden"
+                id="project-image-input"
+              />
+              <label htmlFor="project-image-input">
+                <Button variant="contained" component="span">
+                  Upload Project Image
+                </Button>
+              </label>
+              {{errors.image && <Typography color="error">{{errors.image}}</Typography>}}
+            </Box>
+
+            <TextField
+              fullWidth
+              label="Project Name"
+              value={{data.name}}
+              onChange={{(e) => setData('name', e.target.value)}}
+              error={{!!errors.name}}
+              helperText={{errors.name}}
+              className="mb-4"
+            />
+
+            <TextField
+              fullWidth
+              multiline
+              rows={{4}}
+              label="Project Description"
+              value={{data.description}}
+              onChange={{(e) => setData('description', e.target.value)}}
+              error={{!!errors.description}}
+              helperText={{errors.description}}
+              className="mb-4"
+            />
+
+            <TextField
+              fullWidth
+              type="date"
+              label="Project Deadline"
+              value={{data.due_date}}
+              onChange={{(e) => setData('due_date', e.target.value)}}
+              error={{!!errors.due_date}}
+              helperText={{errors.due_date}}
+              InputLabelProps={{{{ shrink: true }}}}
+              className="mb-4"
+            />
+
+            <FormControl fullWidth className="mb-4">
+              <InputLabel>Project Status</InputLabel>
+              <Select
+                value={{data.status}}
+                onChange={{(e) => setData('status', e.target.value)}}
+                error={{!!errors.status}}
+              >
+                <MenuItem value="">Select Status</MenuItem>
+                <MenuItem value="pending">Pending</MenuItem>
+                <MenuItem value="in_progress">In Progress</MenuItem>
+                <MenuItem value="completed">Completed</MenuItem>
+              </Select>
+              {{errors.status && <Typography color="error">{{errors.status}}</Typography>}}
+            </FormControl>
+
+            <Box className="mt-4 text-right">
+              <Link
+                href={{route('project.index')}}
+                className="bg-gray-100 py-2 px-4 text-gray-800 rounded shadow transition-all hover:bg-gray-200 mr-2"
+              >
+                Cancel
+              </Link>
+              <Button type="submit" variant="contained" color="primary">
+                Submit
+              </Button>
+            </Box>
+          </form>
+        </Paper>
+      </Container>
+    </AuthenticatedLayout>
+  );
+}}"""
     return code

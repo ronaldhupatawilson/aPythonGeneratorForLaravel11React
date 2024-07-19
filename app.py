@@ -46,8 +46,22 @@ def fetch_table_and_column_info(connection, database):
         cursor.execute(f"select table_name from information_schema.tables where table_schema = '{database}' and table_type='BASE TABLE'")
         tables = cursor.fetchall()
 
+
+# SELECT DISTINCT KEY_COLUMN_USAGE.TABLE_NAME, KEY_COLUMN_USAGE.COLUMN_NAME
+#     FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE (KEY_COLUMN_USAGE.TABLE_NAME = TABLES.TABLE_NAME AND KEY_COLUMN_USAGE.TABLE_SCHEMA = TABLES.TABLE_SCHEMA)
+
         for table_name in tables:
-            cursor.execute(f"SELECT COLUMN_NAME, ORDINAL_POSITION, IS_NULLABLE, DATA_TYPE, NUMERIC_PRECISION, NUMERIC_SCALE, CHARACTER_MAXIMUM_LENGTH, COLUMN_KEY, COLUMN_TYPE, EXTRA, COLUMN_COMMENT, COLUMN_DEFAULT FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '{database}' AND TABLE_NAME = '{table_name[0]}' ORDER BY ORDINAL_POSITION")
+            cursor.execute(f"""SELECT COLUMNS.COLUMN_NAME, COLUMNS.ORDINAL_POSITION, COLUMNS.IS_NULLABLE, COLUMNS.DATA_TYPE, 
+            COLUMNS.NUMERIC_PRECISION, COLUMNS.NUMERIC_SCALE, COLUMNS.CHARACTER_MAXIMUM_LENGTH, COLUMNS.COLUMN_KEY, COLUMNS.COLUMN_TYPE, 
+            COLUMNS.EXTRA, COLUMNS.COLUMN_COMMENT, 
+            COLUMNS.COLUMN_DEFAULT, KEY_COLUMN_USAGE.TABLE_NAME, KEY_COLUMN_USAGE.COLUMN_NAME 
+            FROM INFORMATION_SCHEMA.COLUMNS LEFT JOIN
+            INFORMATION_SCHEMA.KEY_COLUMN_USAGE ON (  KEY_COLUMN_USAGE.TABLE_NAME = COLUMNS.TABLE_NAME 
+            AND KEY_COLUMN_USAGE.TABLE_SCHEMA = COLUMNS.TABLE_SCHEMA 
+            AND COLUMNS.COLUMN_NAME = KEY_COLUMN_USAGE.COLUMN_NAME  )
+            WHERE COLUMNS.TABLE_SCHEMA = '{database}' 
+            AND COLUMNS.TABLE_NAME = '{table_name[0]}' 
+            ORDER BY COLUMNS.ORDINAL_POSITION""")
             data[table_name[0]] = [
                 {
                     'COLUMN_NAME': row[0],
@@ -62,6 +76,8 @@ def fetch_table_and_column_info(connection, database):
                     'EXTRA': row[9],
                     'COLUMN_COMMENT': row[10],
                     'COLUMN_DEFAULT': row[11],
+                    'FK_TABLE':row[12],
+                    'FK_COLUMN':row[13]
                 }
                 for row in cursor.fetchall()
             ]
