@@ -1,4 +1,5 @@
-# ln=laravel names, ci= column info
+from codegenerator.laravel_11 import utilities
+
 def get_web_controller_file_content(ln, ci, belongs_to_list, has_many_list, has_many_through_list):
     controller_code = f"""<?php
 
@@ -7,7 +8,18 @@ namespace App\\Http\\Controllers;
 use App\\Http\\Controllers\\Controller;
 use App\\Models\\{ln.model_class_name};
 use App\\Http\\Requests\\{ln.request_class_name};
-
+use App\\Http\\Resources\\{ln.resource_class_name};
+"""
+    for item in belongs_to_list:
+        controller_code += f"use App\\Http\\Requests\\{utilities.model_class_name_from_table_name(item['table_name'])}Request;\n"
+        controller_code += f"use App\\Http\\Resources\\{utilities.model_class_name_from_table_name(item['table_name'])}Resource;\n"
+    for item in has_many_list:
+        controller_code += f"use App\\Http\\Requests\\{utilities.model_class_name_from_table_name(item['table_name'])}Request;\n"
+        controller_code += f"use App\\Http\\Resources\\{utilities.model_class_name_from_table_name(item['table_name'])}Resource;\n"
+    for item in has_many_through_list:
+        controller_code += f"use App\\Http\\Requests\\{utilities.model_class_name_from_table_name(item['table'])}Request;\n"
+        controller_code += f"use App\\Http\\Resources\\{utilities.model_class_name_from_table_name(item['table'])}Resource;\n"
+    controller_code += f"""
 class {ln.web_controller_class_name} extends Controller
 {{
     /**
@@ -22,12 +34,7 @@ class {ln.web_controller_class_name} extends Controller
         $sortField = request("sort_field", 'created_at');
         $sortDirection = request("sort_direction", "desc");
 
-        if (request("name")) {{
-            $query->where("name", "like", "%" . request("name") . "%");
-        }}
-        if (request("status")) {{
-            $query->where("status", request("status"));
-        }}
+{ci.controller_index_where_statements}
 
         ${ln.lctn} = $query->orderBy($sortField, $sortDirection)
             ->paginate(10)
@@ -61,7 +68,7 @@ class {ln.web_controller_class_name} extends Controller
     public function store(Store{ln.model_class_name}Request $request)
     {{
         $data = $request->validated();
-        /** @var $image \Illuminate\Http\UploadedFile */
+        /** @var $image \\Illuminate\\Http\\UploadedFile */
         $image = $data['image'] ?? null;
         $data['created_by'] = Auth::id();
         $data['updated_by'] = Auth::id();
@@ -116,7 +123,7 @@ class {ln.web_controller_class_name} extends Controller
         ${ln.lcs}->update($data);
 
         return to_route('{ln.lcs}.index')
-            ->with('success', "{ln.model_class_name} \"${ln.lcs}->name\" was updated");
+            ->with('success', "{ln.model_class_name} \\"${ln.lcs}->name\\" was updated");
     }}
 
     /**
@@ -130,7 +137,7 @@ class {ln.web_controller_class_name} extends Controller
             Storage::disk('public')->deleteDirectory(dirname(${ln.lcs}->image_path));
         }}
         return to_route('{ln.lcs}.index')
-            ->with('success', "{ln.model_class_name} \"$name\" was deleted");
+            ->with('success', "{ln.model_class_name} \\"$name\\" was deleted");
     }}
 }}
     """

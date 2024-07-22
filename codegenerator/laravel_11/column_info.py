@@ -1,4 +1,5 @@
 from codegenerator.laravel_11 import utilities
+from pprint import pprint
 
 
 class ColumnInfo:
@@ -22,3 +23,9 @@ class ColumnInfo:
         self.prepare_for_validation = utilities.get_prepare_for_validation(columns, ignore_columns)
         self.has_dates_or_times = utilities.has_column_with_data_or_time_like_data_type(columns)
         self.has_storage_path = utilities.has_column_name_ending_in_path(columns)
+        self.columns = columns
+        self.ignore_columns = ignore_columns
+        self.typescript_interface_fields = utilities.get_typescript_interface_fields(columns, ignore_columns)
+        self.controller_index_where_statements = utilities.get_controller_index_where_statements(columns, ignore_columns)
+        self.react_index_table_headings = utilities.get_react_index_table_headings(columns, ignore_columns)
+        self.react_index_table_search_headings = utilities.get_react_index_table_search_headings(columns, ignore_columns)

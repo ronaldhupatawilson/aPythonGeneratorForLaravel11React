@@ -17,10 +17,17 @@ from codegenerator.laravel_11.templates import resource
 from codegenerator.laravel_11.templates import resource_collection
 from codegenerator.laravel_11.templates import test_feature_controller
 # from codegenerator.laravel_11.templates import test_unit_controller
-from codegenerator.laravel_11.templates import filter
-from codegenerator.laravel_11.templates import filter_base_class
+# from codegenerator.laravel_11.templates import filter
+# from codegenerator.laravel_11.templates import filter_base_class
 from codegenerator.laravel_11.templates import web_routes_authentication_setup
-from codegenerator.laravel_11.templates import policy
+# from codegenerator.laravel_11.templates import policy
+from codegenerator.laravel_11.templates import react_create
+from codegenerator.laravel_11.templates import react_data_table
+from codegenerator.laravel_11.templates import react_edit
+from codegenerator.laravel_11.templates import react_show
+from codegenerator.laravel_11.templates import react_index
+from codegenerator.laravel_11.templates import routes_generated
+from codegenerator.laravel_11.templates import react_dashboard_menu_grid
 
 
 def connect_to_database(host, user, password, database):
@@ -45,10 +52,6 @@ def fetch_table_and_column_info(connection, database):
         cursor = connection.cursor()
         cursor.execute(f"select table_name from information_schema.tables where table_schema = '{database}' and table_type='BASE TABLE'")
         tables = cursor.fetchall()
-
-
-# SELECT DISTINCT KEY_COLUMN_USAGE.TABLE_NAME, KEY_COLUMN_USAGE.COLUMN_NAME
-#     FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE (KEY_COLUMN_USAGE.TABLE_NAME = TABLES.TABLE_NAME AND KEY_COLUMN_USAGE.TABLE_SCHEMA = TABLES.TABLE_SCHEMA)
 
         for table_name in tables:
             cursor.execute(f"""SELECT COLUMNS.COLUMN_NAME, COLUMNS.ORDINAL_POSITION, COLUMNS.IS_NULLABLE, COLUMNS.DATA_TYPE, 
@@ -107,11 +110,11 @@ def main():
     default_host = "localhost"
     default_user = "root"
     default_password = "root"
-    default_database = "testData"
+    default_database = "performance_everyday"
     completed_tables = []
-    default_output_folder_path = 'c:\\projects\\reactGeneratorOutput\\' #os.path.dirname(os.path.realpath(__file__))+'\\output\\'
-    default_ignore_tables = ['failed_jobs', 'migrations', 'password_reset_tokens', 'personal_access_tokens', 'users']
-    default_ignore_columns = ['id','user_id', 'created_at', 'updated_at', 'deleted_at','createdBy_user_id','lastUpdatedBy_user_id','lastUpdatedByReal_user_id']
+    default_output_folder_path = 'c:\\projects\\performance-everyday\\' #os.path.dirname(os.path.realpath(__file__))+'\\output\\'
+    default_ignore_tables = ['cache', 'cache_locks', 'failed_jobs', 'jobs', 'sessions', 'job_batches', 'migrations', 'password_reset_tokens', 'personal_access_tokens', 'users']
+    default_ignore_columns = ['user_id', 'created_at', 'updated_at', 'deleted_at','createdBy_user_id','lastUpdatedBy_user_id','lastUpdatedByReal_user_id']
     default_cache_system = 'redis'
     default_use_inertia = 'true'
 
@@ -133,22 +136,24 @@ def main():
         if table in ignore_tables:
             continue
         print(f"Writing Laravel PHP files for table '{table}' to {output_folder_path}")
-        # pprint(columns)
-        # sys.exit(0)
-        #is_actual_table = is_base_table(connection, database, table)
-        ln = laravel_object_and_file_names.LaravelObjectAndFileNames(table, True, 'redis' )
+
+        ln = laravel_object_and_file_names.LaravelObjectAndFileNames(table, True, 'redis')
         ci = column_info.ColumnInfo(columns, ignore_columns)
 
-        # write the web controller file
-        web_controller_file_content = web_controller.get_web_controller_file_content(ln, ci)
+        belongs_to_list = model_utilities.belongs_to(connection, table)
+        has_many_list = model_utilities.has_many(connection, table)
+        has_many_through_list = model_utilities.has_many_through(connection, table, ignore_columns)
+
+        # write the  controller file
+        web_controller_file_content = web_controller.get_web_controller_file_content(ln, ci, belongs_to_list, has_many_list, has_many_through_list)
         file_path = output_folder_path + ln.web_controller_file_path
         file_name = ln.web_controller_file_name
         os.makedirs(file_path, exist_ok=True)
         with open(os.path.join(file_path, file_name), 'w') as file:
             file.write(web_controller_file_content)
 
-        #if is_actual_table :
-            # write the factory file
+
+        # write the factory file
         factory_file_content = factory.get_factory_file_content(ln, ci)
         file_path = output_folder_path + ln.factory_file_path
         file_name = ln.factory_file_name
@@ -173,23 +178,12 @@ def main():
             file.write(seeder_file_content)
 
         #     write the model file
-        belongs_to_list = model_utilities.belongs_to(connection, table)
-        has_many_list = model_utilities.has_many(connection, table)
-        has_many_through_list = model_utilities.has_many_through(connection, table, ignore_columns)
         model_file_content = model.get_model_file_content(ln, ci, belongs_to_list, has_many_list, has_many_through_list)
         file_path = output_folder_path + ln.model_file_path
         file_name = ln.model_file_name
         os.makedirs(file_path, exist_ok=True)
         with open(os.path.join(file_path, file_name), 'w') as file:
             file.write(model_file_content)
-
-        #     write the policy file
-        # policy_file_content = policy.get_policy_file_content(ln, ci)
-        # file_path = output_folder_path + ln.policy_file_path
-        # file_name = ln.policy_file_name
-        # os.makedirs(file_path, exist_ok=True)
-        # with open(os.path.join(file_path, file_name), 'w') as file:
-        #     file.write(policy_file_content)
 
         #     write the request file
         request_file_content = request.get_request_file_content(ln, ci)
@@ -199,13 +193,70 @@ def main():
         with open(os.path.join(file_path, file_name), 'w') as file:
             file.write(request_file_content)
 
-        #     write the resource file
+        # write the resource file
         resource_file_content = resource.get_resource_file_content(ln, ci)
         file_path = output_folder_path + ln.resource_file_path
         file_name = ln.resource_file_name
         os.makedirs(file_path, exist_ok=True)
         with open(os.path.join(file_path, file_name), 'w') as file:
             file.write(resource_file_content)
+
+        # write the react index file
+        react_index_file_content = react_index.get_index_code(ln, ci, belongs_to_list, has_many_list, has_many_through_list)
+        file_path = output_folder_path + ln.react_table_components_folder
+        file_name = ln.react_index_file_name
+        os.makedirs(file_path, exist_ok=True)
+        with open(os.path.join(file_path, file_name), 'w') as file:
+            file.write(react_index_file_content)
+
+        # write the react create file
+        react_create_file_content = react_create.get_create_code(ln, ci, belongs_to_list, has_many_list, has_many_through_list)
+        file_path = output_folder_path + ln.react_table_components_folder
+        file_name = ln.react_create_file_name
+        os.makedirs(file_path, exist_ok=True)
+        with open(os.path.join(file_path, file_name), 'w') as file:
+            file.write(react_create_file_content)
+
+        # write the react show file
+        react_show_file_content = react_show.get_show_code(ln, ci, belongs_to_list, has_many_list, has_many_through_list)
+        file_path = output_folder_path + ln.react_table_components_folder
+        file_name = ln.react_show_file_name
+        os.makedirs(file_path, exist_ok=True)
+        with open(os.path.join(file_path, file_name), 'w') as file:
+            file.write(react_show_file_content)
+
+        # write the react edit file
+        react_edit_file_content = react_edit.get_edit_code(ln, ci, belongs_to_list, has_many_list, has_many_through_list)
+        file_path = output_folder_path + ln.react_table_components_folder
+        file_name = ln.react_edit_file_name
+        os.makedirs(file_path, exist_ok=True)
+        with open(os.path.join(file_path, file_name), 'w') as file:
+            file.write(react_edit_file_content)
+
+        # write the react data_table file
+        react_data_table_file_content = react_data_table.get_data_table_code(ln, ci, belongs_to_list, has_many_list, has_many_through_list)
+        file_path = output_folder_path + ln.react_table_components_folder
+        file_name = ln.react_data_table_file_name
+        os.makedirs(file_path, exist_ok=True)
+        with open(os.path.join(file_path, file_name), 'w') as file:
+            file.write(react_data_table_file_content)
+
+        # write the controller feature test file
+        controller_test_file_content = test_feature_controller.get_controller_test_file_content(ln, ci)
+        file_path = output_folder_path + ln.test_feature_controller_file_path
+        file_name = ln.test_feature_controller_file_name
+        os.makedirs(file_path, exist_ok=True)
+        with open(os.path.join(file_path, file_name), 'w') as file:
+            file.write(controller_test_file_content)
+
+        #     write the policy file
+        # policy_file_content = policy.get_policy_file_content(ln, ci)
+        # file_path = output_folder_path + ln.policy_file_path
+        # file_name = ln.policy_file_name
+        # os.makedirs(file_path, exist_ok=True)
+        # with open(os.path.join(file_path, file_name), 'w') as file:
+        #     file.write(policy_file_content)
+
 
         #     write the resource collection file
         # resource_collection_file_content = resource_collection.get_resource_collection_file_content(ln, ci)
@@ -215,14 +266,6 @@ def main():
         # with open(os.path.join(file_path, file_name), 'w') as file:
         #     file.write(resource_collection_file_content)
 
-        #if is_actual_table:
-        #     write the controller feature test file
-        controller_test_file_content = test_feature_controller.get_controller_test_file_content(ln, ci)
-        file_path = output_folder_path + ln.test_feature_controller_file_path
-        file_name = ln.test_feature_controller_file_name
-        os.makedirs(file_path, exist_ok=True)
-        with open(os.path.join(file_path, file_name), 'w') as file:
-            file.write(controller_test_file_content)
 
         #     write the controller unit test file
         # unit_test_file_content = test_unit_controller.get_unit_test_file_content(ln, ci)
@@ -231,6 +274,7 @@ def main():
         # os.makedirs(file_path, exist_ok=True)
         # with open(os.path.join(file_path, file_name), 'w') as file:
         #     file.write(unit_test_file_content)
+
 
         #     write the filter file
         # filter_file_content = filter.get_filter_file_content(ln, ci)
@@ -296,21 +340,32 @@ def main():
     # with open(os.path.join(file_path, file_name), 'w') as file:
     #     file.write(web_routes_authentication_setup_content)
 
-    # print("\n\n\nWriting the routes/web_generated.php file - be sure to include this in routes/web.php file\n\n")
-    # web_include_content = ''
-    # for table in completed_tables:
-    #     ln = laravel_object_and_file_names.LaravelObjectAndFileNames(table)
-    #     web_include_content += f"use App\\Http\\Controllers\\{ln.web_controller_class_name};\n"
-    # for table in completed_tables:
-    #     ln = laravel_object_and_file_names.LaravelObjectAndFileNames(table)
-    #     web_include_content += f"Route::resource('{ln.lctn}', [{ln.web_controller_class_name}::class]);\n"
-    # file_path = output_folder_path + ln.web_routes_file_path
-    # file_name = ln.web_routes_file_name
-    # os.makedirs(file_path, exist_ok=True)
-    # with open(os.path.join(file_path, file_name), 'w') as file:
-    #     file.write(web_include_content)
+    print("\n\n\nWriting the routes/generated.php file - be sure to include this in routes/web.php file\n\n")
+    imports = []
+    routes = []
+    for table in completed_tables:
+        ln = laravel_object_and_file_names.LaravelObjectAndFileNames(table, True, 'redis')
+        imports.append(f"use App\\Http\\Controllers\\{ln.web_controller_class_name};\n")
 
-    # print('route include files written to ' + os.path.join(file_path, file_name))
+    for table in completed_tables:
+        ln = laravel_object_and_file_names.LaravelObjectAndFileNames(table, True, 'redis')
+        routes.append(f"Route::resource('{ln.lcs}', {ln.web_controller_class_name}::class);\n")
+    generated_routes_content = routes_generated.get_generated_routes(imports, routes)
+    file_path = output_folder_path + ln.web_routes_file_path
+    file_name = ln.web_routes_file_name
+    os.makedirs(file_path, exist_ok=True)
+    with open(os.path.join(file_path, file_name), 'w') as file:
+        file.write(generated_routes_content)
+
+    print("\n\n\nWriting the menuGrid component in /resources/js/Components/MenuGrid.tsx\n\n")
+    generated_menu_grid_content = react_dashboard_menu_grid.get_dashboard_menu_grid_code(completed_tables)
+    file_path = output_folder_path + ln.components_file_path
+    file_name = ln.react_menu_grid_file_name
+    os.makedirs(file_path, exist_ok=True)
+    with open(os.path.join(file_path, file_name), 'w') as file:
+        file.write(generated_menu_grid_content)
+
+    print('route include files written to ' + os.path.join(file_path, file_name))
 
     print("""Remember to include the following code in the app/Http/middleware/HandleInertiaRequest file share function:
                 'flash' => [
@@ -319,10 +374,13 @@ def main():
 
     print("""Remember to remove the data envelope from Laravel by going to the AppServiceProvider.php 
     add 
-        use Illuminate\Http\Resources\Json\JsonResource; 
+        use Illuminate\\Http\\Resources\\Json\\JsonResource; 
     to the top and in the boot function add the line
         JsonResource::withoutWrapping();
     """)
+
+    print("""Remember to run the following command 
+    php artisan ziggy:generate --types""")
 
     if connection is not None:
         connection.close()

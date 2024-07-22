@@ -1,14 +1,13 @@
 from mysql.connector.connection import MySQLConnection
 from typing import List, Dict, Any
-import inflect
-
-p = inflect.engine()
+from codegenerator.laravel_11 import utilities
+from pprint import pprint
 
 
 def has_many(connection: MySQLConnection, table_name: str) -> List[str]:
     cursor = connection.cursor()
 
-    singular = p.singular_noun(table_name)
+    singular_table_name = utilities.singular(table_name)
 
     # Query for tables based on naming convention
     query1 = """
@@ -21,7 +20,7 @@ def has_many(connection: MySQLConnection, table_name: str) -> List[str]:
     AND TABLES.TABLE_TYPE = 'BASE TABLE'
     """
 
-    cursor.execute(query1, (f"{singular}_id", f"%_{singular}_id", table_name, connection.database))
+    cursor.execute(query1, (f"{singular_table_name}_id", f"%_{singular_table_name}_id", table_name, connection.database))
     results = set((row[0], row[1]) for row in cursor.fetchall())
 
     # Query for tables explicitly referencing this table through foreign keys
@@ -64,9 +63,9 @@ def belongs_to(connection: MySQLConnection, table_name: str) -> List[Dict[str, s
     for row in cursor.fetchall():
         column_name = row['COLUMN_NAME']
         if '_' in column_name:
-            referenced_table = p.plural(column_name.split('_')[-2])
+            referenced_table = utilities.plural(column_name.split('_')[-2])
         else:
-            referenced_table = p.plural(column_name[:-3])
+            referenced_table = utilities.plural(column_name[:-3])
         results.append({"table_name": referenced_table, "column_name": column_name})
 
     # Query for tables explicitly referenced by this table through foreign keys
@@ -116,9 +115,9 @@ def belongs_to(connection: MySQLConnection, table_name: str) -> List[Dict[str, s
 #     for row in cursor.fetchall():
 #         column_name = row[0]
 #         if '_' in column_name:
-#             referenced_table = p.plural(column_name.split('_')[-2])
+#             referenced_table = utilities.plural(column_name.split('_')[-2])
 #         else:
-#             referenced_table = p.plural(column_name[:-3])
+#             referenced_table = utilities.plural(column_name[:-3])
 #         results.add(referenced_table)
 #
 #     # Query for tables explicitly referenced by this table through foreign keys
@@ -167,7 +166,7 @@ def has_many_through(connection: MySQLConnection, table_name: str, excluded_colu
     pivot_tables = get_pivot_tables(connection, table_name)
 
     results = []
-    singular = p.singular_noun(table_name)
+    singular = utilities.singular(table_name)
 
     for pivot_table in pivot_tables:
         query = """
@@ -182,7 +181,7 @@ def has_many_through(connection: MySQLConnection, table_name: str, excluded_colu
 
         other_table_name = pivot_table.replace(table_name, '').replace('_', '').strip()
 
-        other_table_name_singular = p.singular_noun(other_table_name)
+        other_table_name_singular = utilities.singular(other_table_name)
 
         other_columns = [col for col in columns
                          if col not in excluded_columns

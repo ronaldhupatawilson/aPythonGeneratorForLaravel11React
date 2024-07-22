@@ -16,6 +16,7 @@ class LaravelObjectAndFileNames:
         self.cfp = utilities.cap_first_plural(table_name)
         self.tn = table_name
         self.lctn = table_name.lower()
+        self.title = utilities.any_case_to_title(table_name)
 
         self.web_controller_class_name = utilities.any_case_to_pascal_case(utilities.singular(table_name))+'Controller'
         self.web_controller_file_path = 'app/Http/Controllers/'
@@ -70,7 +71,7 @@ class LaravelObjectAndFileNames:
         self.api_routes_file_name = 'api_routes_generated.php'
 
         self.web_routes_file_path = 'routes'
-        self.web_routes_file_name = 'web_routes_generated.php'
+        self.web_routes_file_name = 'generated.php'
 
         self.base_filter_class_file_path = 'app/Filters/'
         self.base_filter_class_file_name = 'ApiFilter.php'
@@ -82,16 +83,14 @@ class LaravelObjectAndFileNames:
         self.filter_file_name = utilities.any_case_to_pascal_case(table_name)+'Filter.php'
         self.filter_class_name = utilities.any_case_to_pascal_case(table_name)+'Filter'
 
-        # self.vue_page_path = 'resources/js/Pages/'
-        # self.vue_page_file_name = utilities.cap_first_plural(table_name)+'.vue'
-        #
-        # self.vue_store_path = 'resources/js/Stores/'
-        # self.vue_store_file_name = utilities.any_case_to_pascal_case(utilities.singular(table_name))+'Store.ts'
-        #
-        # self.vue_component_path = 'resources/js/Components/'+utilities.lower_case_single(table_name)+'/'
-        # self.vue_component_search_file_name = utilities.cap_first_plural(table_name)+'Search.vue'
-        # self.vue_component_search_file_name = utilities.cap_first_plural(table_name)+'DataTable.vue'
-        # self.vue_component_search_file_name = utilities.cap_first_plural(table_name)+'AddEditReadModal.vue'
-        # self.vue_component_search_file_name = utilities.cap_first_plural(table_name)+'FkDataTable.vue'
-        # self.vue_component_search_file_name = utilities.cap_first_plural(table_name)+'SingleSelectInput.vue'
-        # self.vue_component_search_file_name = utilities.cap_first_plural(table_name)+'MultiSelectInput.vue'
+        self.react_page_path = 'resources/js/Pages/'
+        self.react_table_components_folder = 'resources/js/Pages/' + utilities.cap_first_single(table_name)+"/"
+        self.react_create_file_name = 'Create.tsx'
+        self.react_show_file_name = 'Show.tsx'
+        self.react_index_file_name = 'Index.tsx'
+        self.react_data_table_file_name = 'DataTable.tsx'
+        self.react_edit_file_name = 'Edit.tsx'
+
+        self.components_file_path = 'resources/js/Components/'
+        self.react_menu_grid_file_name = 'MenuGrid.tsx'
+

@@ -2,7 +2,6 @@ import inflect
 import re
 from pprint import pprint
 
-
 p = inflect.engine()
 
 
@@ -15,31 +14,41 @@ def capitalize_first_letter(s):
 
 
 def singular(noun):
-    return p.singular_noun(noun)
+    return_value = p.singular_noun(noun)
+    if isinstance(return_value, bool):
+        return_value = noun
+    return return_value
 
 
 def plural(noun):
-    return p.plural(noun)
+    return_value = p.plural(noun)
+    if isinstance(return_value, bool):
+        return_value = noun
+    return return_value
 
 
 def lower_case_single(noun):
-    return p.singular_noun(noun.lower())
+    return singular(noun.lower())
+
+
+def model_class_name_from_table_name(some_table_name):
+    return any_case_to_pascal_case(singular(some_table_name))
 
 
 def cap_first_single(noun):
-    if p.singular_noun( noun.lower() ) :
-        single_lowercase_noun = p.singular_noun(noun.lower())
+    if singular( noun.lower() ) :
+        single_lowercase_noun = singular(noun.lower())
     else:
         single_lowercase_noun = noun
     return single_lowercase_noun.title()
 
 
 def lower_case_plural(noun):
-    return p.plural(noun.lower())
+    return plural(noun.lower())
 
 
 def cap_first_plural(noun):
-    plural_lowercase_noun = p.plural(noun.lower())
+    plural_lowercase_noun = plural(noun.lower())
     return plural_lowercase_noun.title()
 
 
@@ -255,7 +264,7 @@ def pluralize_second_to_last(s):
     p = inflect.engine()
     parts = s.split('_')
     if len(parts) >= 2 and s[-3:] == '_id':
-        return p.plural(parts[-2])
+        return plural(parts[-2])
     return s
 
 
@@ -394,7 +403,7 @@ def get_resource_array(columns, ignore_columns):
         prefix = ''
         if column['COLUMN_NAME'] in ignore_columns:
             prefix = '//'
-        return_string += " " * 12 + f"{prefix}'{any_case_to_camel_case(column['COLUMN_NAME'])}' => "
+        return_string += " " * 12 + f"{prefix}'{column['COLUMN_NAME']}' => "
         if column['DATA_TYPE'] in time_types:
             date_time_format = 'Y-m-d H:i:s.u'
             if column['DATA_TYPE'] == 'date':
@@ -461,4 +470,95 @@ def get_prepare_for_validation(columns, ignore_columns):
             return_string += " " * 12 + f"'{column['COLUMN_NAME']}' => $this->{any_case_to_camel_case(column['COLUMN_NAME'])}\n"
             return_string += " " * 8 + f"]);\n"
             return_string += " " * 8 + "}\n"
+    return return_string
+
+
+def get_typescript_interface_fields(columns, ignore_columns):
+    return_string = ''
+    for column in columns:
+        if column['COLUMN_NAME'] in ignore_columns:
+            continue
+        typescript_type=""
+        if column['DATA_TYPE'] in ['int', 'bigint', 'mediumint', 'smallint', 'decimal', 'double', 'float', 'real']:
+            typescript_type += "number"
+        if column['DATA_TYPE'] in ['char', 'varchar', 'text', 'longtext', 'mediumtext', 'smalltext', 'date', 'datetime', 'time', 'timestamp']:
+            typescript_type += "string"
+        if column['DATA_TYPE'] in ['tinyint']:
+            typescript_type += "bool"
+        return_string += " " * 4 + f"{column['COLUMN_NAME']}: {typescript_type};\n"
+    return return_string
+
+
+def get_controller_index_where_statements(columns, ignore_columns):
+    return_string = ''
+    for column in columns:
+        if column['COLUMN_NAME'] in ignore_columns:
+            continue
+        return_string +=  " " * 8 + f"""if (request('{column['COLUMN_NAME']}')) {{\n"""
+        if column['DATA_TYPE'] in ['int', 'bigint', 'mediumint', 'smallint', 'decimal', 'double', 'float', 'real', 'date', 'datetime', 'time', 'timestamp']:
+            return_string += " " * 12 + f"""$query->where("{column['COLUMN_NAME']}", request("{column['COLUMN_NAME']}"));\n"""
+        if column['DATA_TYPE'] in ['char', 'varchar', 'text', 'longtext', 'mediumtext', 'smalltext']:
+            return_string += " " * 12 + f"""$query->where("{column['COLUMN_NAME']}", "like", "%" . request("{column['COLUMN_NAME']}") ."%");\n"""
+        if column['DATA_TYPE'] in ['tinyint']:
+            return_string += " " * 12 + f"""$query->where("{column['COLUMN_NAME']}", request("{column['COLUMN_NAME']}"));\n"""
+        return_string +=  " " * 8 + f"""}}\n"""
+    return return_string
+
+
+def get_react_index_table_headings(columns, ignore_columns):
+    return_string = ''
+    for column in columns:
+        if column['COLUMN_NAME'] in ignore_columns:
+            continue
+        if column['COLUMN_NAME'] == 'id':
+            continue
+        return_string += " " * 20 + f"""<TableHeading
+                      name="{column['COLUMN_NAME']}"
+                      sort_field={{mergedQueryParams.sort_field}}
+                      sort_direction={{mergedQueryParams.sort_direction}}
+                      sortChanged={{sortChanged}}
+                    >
+                      {any_case_to_title(column['COLUMN_NAME'])}
+                    </TableHeading>\n"""
+    return return_string
+
+
+def get_react_index_table_search_headings(columns, ignore_columns):
+    return_string = ''
+    for column in columns:
+        if column['COLUMN_NAME'] in ignore_columns:
+            continue
+        if column['COLUMN_NAME'] == 'id':
+            continue
+        return_string += " " * 20 + f"""<TableCell>
+                                            <TextField
+                                                fullWidth
+                                                defaultValue={{
+                                                    queryParams?.{column['COLUMN_NAME']} ?? ""
+                                                }}
+                                                placeholder="{any_case_to_title(column['COLUMN_NAME'])}"
+                                                onBlur={{(e) =>
+                                                    searchFieldChanged(
+                                                        "{column['COLUMN_NAME']}",
+                                                        e.target.value
+                                                    )
+                                                }}
+                                                onKeyPress={{(e) =>
+                                                    onKeyPress("{column['COLUMN_NAME']}", e)
+                                                }}
+                                            />
+                                        </TableCell>\n"""
+    return return_string
+
+
+def react_index_table_data_cells(columns, ignore_columns, lower_case_singular_table_name):
+    return_string = ''
+    for column in columns:
+        if column['COLUMN_NAME'] in ignore_columns:
+            continue
+        if column['COLUMN_NAME'] == 'id':
+            continue
+        return_string += " " * 20 + f"""<TableCell>
+                      {{ {lower_case_singular_table_name}.{column['COLUMN_NAME']} }}
+                    </TableCell>\n"""
     return return_string

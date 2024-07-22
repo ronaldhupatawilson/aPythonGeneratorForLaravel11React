@@ -1,4 +1,4 @@
-from codegenerator.laravel_11 import utilities
+from pprint import pprint
 
 
 def get_resource_file_content(ln, ci):
