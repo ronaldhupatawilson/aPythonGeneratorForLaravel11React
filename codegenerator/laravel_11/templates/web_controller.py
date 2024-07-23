@@ -19,6 +19,13 @@ use App\\Http\\Resources\\{ln.resource_class_name};
     for item in has_many_through_list:
         controller_code += f"use App\\Http\\Requests\\{utilities.model_class_name_from_table_name(item['table'])}Request;\n"
         controller_code += f"use App\\Http\\Resources\\{utilities.model_class_name_from_table_name(item['table'])}Resource;\n"
+
+    belongs_to_or_query = "query()"
+    if len(belongs_to_list) > 0:
+        # function_name = utilities.any_case_to_camel_case(s['column_name'].replace('_id', ''))
+        comma_separated_list = ", ".join(f'"{utilities.any_case_to_camel_case(s["column_name"].replace("_id", ""))}"' for s in belongs_to_list)
+        belongs_to_or_query = f"with([{comma_separated_list}])"
+
     controller_code += f"""
 class {ln.web_controller_class_name} extends Controller
 {{
@@ -29,10 +36,37 @@ class {ln.web_controller_class_name} extends Controller
      */
     public function index()
     {{
-        $query = {ln.model_class_name}::query();
+        $query = {ln.model_class_name}::{belongs_to_or_query};
 
         $sortField = request("sort_field", 'created_at');
         $sortDirection = request("sort_direction", "desc");
+ """
+    if len(belongs_to_list) > 0:
+        controller_code += f"""
+        if (in_array($sortField, [{comma_separated_list}])) {{
+        $relation = explode('.', $sortField)[0];
+        $column = explode('.', $sortField)[1];
+        $query->join($relation, $relation.'.id', '=', 'workouts.'.$relation.'_id')
+              ->orderBy($relation.'.'.$column, $sortDirection)
+              ->select('workouts.*'); // Ensure we only select from the workouts table
+        }} else {{
+            $query->orderBy($sortField, $sortDirection);
+        }}"""
+    else:
+        
+
+    controller_code += f"""
+        if (in_array($sortField, [{comma_separated_list}])) {{
+        $relation = explode('.', $sortField)[0];
+        $column = explode('.', $sortField)[1];
+        $query->join($relation, $relation.'.id', '=', 'workouts.'.$relation.'_id')
+              ->orderBy($relation.'.'.$column, $sortDirection)
+              ->select('workouts.*'); // Ensure we only select from the workouts table
+        }} else {{
+            $query->orderBy($sortField, $sortDirection);
+        }}
+        
+        
 
 {ci.controller_index_where_statements}
 

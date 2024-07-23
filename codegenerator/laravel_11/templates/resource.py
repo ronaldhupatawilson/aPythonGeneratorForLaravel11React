@@ -1,7 +1,7 @@
-from pprint import pprint
+from codegenerator.laravel_11.utilities import get_resource_array
 
 
-def get_resource_file_content(ln, ci):
+def get_resource_file_content(ln, ci, columns, ignore_columns, belongs_to_list, has_many_list, has_many_through_list):
     carbon_import = ''
     storage_import = ''
     if ci.has_dates_or_times:
@@ -39,7 +39,7 @@ class {ln.resource_class_name} extends JsonResource
     public function toArray(Request $request): array
     {{
         return [
-{ci.resource_array}
+{get_resource_array(columns, ignore_columns)}
         ];
     }}
 }}

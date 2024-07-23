@@ -3,6 +3,30 @@ from typing import List, Dict, Any
 from codegenerator.laravel_11 import utilities
 from pprint import pprint
 
+def get_first_text_like_column_from_table_name(connection: MySQLConnection, table_name: str) -> List[str]:
+    cursor = connection.cursor()
+
+    query = """
+    SELECT COLUMN_NAME
+    FROM INFORMATION_SCHEMA.COLUMNS JOIN INFORMATION_SCHEMA.TABLES ON (COLUMNS.TABLE_NAME = TABLES.TABLE_NAME AND COLUMNS.TABLE_SCHEMA = TABLES.TABLE_SCHEMA)
+    WHERE COLUMNS.TABLE_NAME = %s
+    AND COLUMNS.TABLE_SCHEMA = %s
+    AND TABLES.TABLE_TYPE = 'BASE TABLE'
+    AND COLUMNS.DATA_TYPE IN ('char','varchar','smalltext','mediumtext','text','largetext')
+    ORDER BY COLUMNS.ORDINAL_POSITION
+    LIMIT 0,1
+    """
+
+    cursor.execute(query, (table_name, connection.database))
+
+    result = cursor.fetchone()
+    cursor.close()
+
+    if result:
+        return result[0]
+    else:
+        return "id"
+
 
 def has_many(connection: MySQLConnection, table_name: str) -> List[str]:
     cursor = connection.cursor()
@@ -66,7 +90,8 @@ def belongs_to(connection: MySQLConnection, table_name: str) -> List[Dict[str, s
             referenced_table = utilities.plural(column_name.split('_')[-2])
         else:
             referenced_table = utilities.plural(column_name[:-3])
-        results.append({"table_name": referenced_table, "column_name": column_name})
+        view_column = get_first_text_like_column_from_table_name(connection, referenced_table)
+        results.append({"table_name": referenced_table, "column_name": column_name, "view_column": view_column})
 
     # Query for tables explicitly referenced by this table through foreign keys
     query2 = """
@@ -79,7 +104,7 @@ def belongs_to(connection: MySQLConnection, table_name: str) -> List[Dict[str, s
     """
 
     cursor.execute(query2, (table_name, connection.database))
-    fk_results = [{"table_name": row['TABLE_NAME'], "column_name": row['COLUMN_NAME']} for row in cursor.fetchall()]
+    fk_results = [{"table_name": row['TABLE_NAME'], "column_name": row['COLUMN_NAME'], "view_column": get_first_text_like_column_from_table_name(connection, row['TABLE_NAME'])} for row in cursor.fetchall()]
 
     # Combine results
     results.extend(fk_results)
@@ -88,56 +113,13 @@ def belongs_to(connection: MySQLConnection, table_name: str) -> List[Dict[str, s
     seen = set()
     unique_results = []
     for item in results:
-        item_tuple = tuple(item.items())
-        if item_tuple not in seen:
-            seen.add(item_tuple)
+        key = (item['table_name'], item['column_name'], item['view_column'])
+        if key not in seen:
+            seen.add(key)
             unique_results.append(item)
 
     cursor.close()
     return unique_results
-
-# def belongs_to(connection: MySQLConnection, table_name: str) -> List[str]:
-#     cursor = connection.cursor()
-#
-#     # Query for tables based on naming convention
-#     query1 = """
-#     SELECT DISTINCT COLUMNS.TABLE_NAME as TABLE_NAME, COLUMN_NAME
-#     FROM INFORMATION_SCHEMA.COLUMNS JOIN INFORMATION_SCHEMA.TABLES ON (COLUMNS.TABLE_NAME = TABLES.TABLE_NAME AND COLUMNS.TABLE_SCHEMA = TABLES.TABLE_SCHEMA)
-#     WHERE COLUMNS.TABLE_NAME = %s
-#     AND (COLUMN_NAME LIKE '%%\\_id' AND COLUMN_NAME != 'id')
-#     AND COLUMNS.TABLE_SCHEMA = %s
-#     AND TABLES.TABLE_TYPE = 'BASE TABLE'
-#     """
-#
-#     cursor.execute(query1, (table_name, connection.database))
-#
-#     results = set()
-#     for row in cursor.fetchall():
-#         column_name = row[0]
-#         if '_' in column_name:
-#             referenced_table = utilities.plural(column_name.split('_')[-2])
-#         else:
-#             referenced_table = utilities.plural(column_name[:-3])
-#         results.add(referenced_table)
-#
-#     # Query for tables explicitly referenced by this table through foreign keys
-#     query2 = """
-#     SELECT DISTINCT KEY_COLUMN_USAGE.REFERENCED_TABLE_NAME AS TABLE_NAME, COLUMN_NAME
-#     FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE JOIN INFORMATION_SCHEMA.TABLES ON (KEY_COLUMN_USAGE.TABLE_NAME = TABLES.TABLE_NAME AND KEY_COLUMN_USAGE.TABLE_SCHEMA = TABLES.TABLE_SCHEMA)
-#     WHERE KEY_COLUMN_USAGE.TABLE_NAME = %s
-#     AND KEY_COLUMN_USAGE.REFERENCED_TABLE_NAME IS NOT NULL
-#     AND KEY_COLUMN_USAGE.TABLE_SCHEMA = %s
-#     AND TABLES.TABLE_TYPE = 'BASE TABLE'
-#     """
-#
-#     cursor.execute(query2, (table_name, connection.database))
-#     fk_results = set(row[0] for row in cursor.fetchall())
-#
-#     # Combine results
-#     results.update(fk_results)
-#
-#     cursor.close()
-#     return list(results)
 
 
 def get_pivot_tables(connection: MySQLConnection, table_name: str) -> List[str]:

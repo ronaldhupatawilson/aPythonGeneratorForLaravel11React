@@ -194,7 +194,7 @@ def main():
             file.write(request_file_content)
 
         # write the resource file
-        resource_file_content = resource.get_resource_file_content(ln, ci)
+        resource_file_content = resource.get_resource_file_content(ln, ci, columns, ignore_columns, belongs_to_list, has_many_list, has_many_through_list)
         file_path = output_folder_path + ln.resource_file_path
         file_name = ln.resource_file_name
         os.makedirs(file_path, exist_ok=True)
@@ -258,13 +258,13 @@ def main():
         #     file.write(policy_file_content)
 
 
-        #     write the resource collection file
-        # resource_collection_file_content = resource_collection.get_resource_collection_file_content(ln, ci)
-        # file_path = output_folder_path + ln.resource_collection_file_path
-        # file_name = ln.resource_collection_file_name
-        # os.makedirs(file_path, exist_ok=True)
-        # with open(os.path.join(file_path, file_name), 'w') as file:
-        #     file.write(resource_collection_file_content)
+        # write the resource collection file
+        resource_collection_file_content = resource_collection.get_resource_collection_file_content(ln, ci)
+        file_path = output_folder_path + ln.resource_collection_file_path
+        file_name = ln.resource_collection_file_name
+        os.makedirs(file_path, exist_ok=True)
+        with open(os.path.join(file_path, file_name), 'w') as file:
+            file.write(resource_collection_file_content)
 
 
         #     write the controller unit test file
@@ -288,8 +288,6 @@ def main():
 
     print('\n\nAdd following code to the database\\seeders\\DatabaseSeeders class [in the run() method]\n\n')
     for table in completed_tables:
-        # is_actual_table = is_base_table(connection, database, table)
-        # if is_actual_table :
         ln = laravel_object_and_file_names.LaravelObjectAndFileNames(table, True, 'redis')
         print(f"        $this->call({ln.model_class_name}TableSeeder::class);")
 
