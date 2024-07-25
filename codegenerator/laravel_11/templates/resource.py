@@ -39,7 +39,7 @@ class {ln.resource_class_name} extends JsonResource
     public function toArray(Request $request): array
     {{
         return [
-{get_resource_array(columns, ignore_columns)}
+{get_resource_array(columns, ignore_columns, belongs_to_list, has_many_list, has_many_through_list, ln)}
         ];
     }}
 }}

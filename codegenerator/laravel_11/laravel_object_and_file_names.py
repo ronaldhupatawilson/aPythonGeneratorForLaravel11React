@@ -94,3 +94,4 @@ class LaravelObjectAndFileNames:
         self.components_file_path = 'resources/js/Components/'
         self.react_menu_grid_file_name = 'MenuGrid.tsx'
 
+

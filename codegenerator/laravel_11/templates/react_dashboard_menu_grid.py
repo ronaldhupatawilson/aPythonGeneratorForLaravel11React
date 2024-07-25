@@ -44,6 +44,8 @@ const MenuGrid = () => {
 
     """
     for table in table_list:
+        if '_' in table:
+            continue
         code += ' '*8+'{\n'
         code += ' '*12+f"url: '{utilities.lower_case_single(table)}',\n"
         code += ' '*12+f"title: '{utilities.any_case_to_title(table)}',\n"

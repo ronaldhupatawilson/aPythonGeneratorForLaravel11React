@@ -281,13 +281,15 @@ def get_column_request_validation_field_code(columns, ignore_columns):
     return return_string
 
 
-def get_patch_column_request_validation_field_code(columns, ignore_columns):
+def get_post_column_request_validation_field_code(columns, ignore_columns):
     # 'muscleGroup_id' => 'nullable|integer',
     # 'exercise' => 'required|string|max:255',
     # 'exerciseDescription' => 'nullable|string'
     return_string = ''
     for column in columns:
         if column['COLUMN_NAME'] in ignore_columns:
+            continue
+        if column['COLUMN_NAME']  == 'id':
             continue
         validation_code = f"sometimes|{mysql_field_to_validation_mapper(column)}"
         return_string += " " * 16 + f"'{column['COLUMN_NAME']}' => '{validation_code}',\n"
@@ -354,7 +356,7 @@ def get_first_textlike_column(columns, ignore_columns):
     for column in columns:
         if column['COLUMN_NAME'] in ignore_columns:
             continue
-        if column['DATA_TYPE'] == 'varchar' or column['DATA_TYPE'] == 'char':
+        if column['DATA_TYPE'] in ['varchar', 'char', 'smalltext', 'text', 'mediumtext', 'largetext']:
             return column['COLUMN_NAME']
     return get_primary_key_column(columns)
 
@@ -391,7 +393,7 @@ def has_column_with_data_or_time_like_data_type(list_of_dicts):
     return False
 
 
-def get_resource_array(columns, ignore_columns):
+def get_resource_array(columns, ignore_columns, belongs_to_list, has_many_list, has_many_through_list, ln):
     time_types = {'date', 'datetime', 'timestamp', 'time'}
     # 'id' => $this->id,
     # 'name' => $this->name,
@@ -418,6 +420,42 @@ def get_resource_array(columns, ignore_columns):
                 return_string += f"$this->{column['COLUMN_NAME']} && !(str_starts_with($this->{column['COLUMN_NAME']}, 'http')) ? Storage::url($this->{column['COLUMN_NAME']}) : '',\n"
             else:
                 return_string += f"$this->{column['COLUMN_NAME']},\n"
+    if len(belongs_to_list) > 0:
+        for belongs_to_item in belongs_to_list:
+            function_name = belongs_to_item['table_name']
+            as_name = get_as_name_for_fk_col(belongs_to_item['column_name'], belongs_to_list)
+            return_string += ' ' * 11 + f""" 
+            '{function_name}' => $this->when($this->relationLoaded('{function_name}'), function () {{
+                return [
+                    'id' => $this->{function_name}->id,
+                    '{belongs_to_item['view_column']}' => $this->{function_name}->{belongs_to_item['view_column']}
+                ];
+            }}),
+            '{as_name}' => $this->{as_name},\n"""
+
+    if len(has_many_list) > 0:
+        for has_many_item in has_many_list:
+            function_name = has_many_item['table_name']
+            resource_name = any_case_to_pascal_case(singular(has_many_item['table_name']))+"Resource"
+            return_string += ' ' * 11 + f""" 
+            '{function_name}' => $this->when($this->relationLoaded('{function_name}'), function () {{
+                return [
+                    'id' => $this->{function_name}->id,
+                    '{has_many_item['view_column']}' => $this->{function_name}->{has_many_item['view_column']}
+                ];
+            }}),\n"""
+
+    if len(has_many_through_list) > 0:
+        for has_many_through_item in has_many_through_list:
+            function_name = has_many_through_item['table_name']
+            return_string += ' ' * 11 + f""" 
+            '{function_name}' => $this->when($this->relationLoaded('{function_name}'), function () {{
+                return [
+                    'id' => $this->{function_name}->id,
+                    '{has_many_through_item['view_column']}' => $this->{function_name}->{has_many_through_item['view_column']}
+                ];
+            }}),\n"""
+
     return return_string
 
 
@@ -452,7 +490,7 @@ def get_filter_safe_parms_arr(columns, ignore_columns):
         return_string += " " * 8 + f"'{column['COLUMN_NAME']}' => ['eq','ne'"
         if column['DATA_TYPE'] in ['int', 'bigint', 'mediumint', 'smallint', 'date', 'datetime', 'time', 'timestamp', 'decimal', 'double', 'float', 'real']:
             return_string += ",'gt' ,'gte' ,'lt' ,'lte'"
-        if column['DATA_TYPE'] in ['char', 'varchar']:
+        if column['DATA_TYPE'] in ['char', 'varchar', 'text', 'smalltext', 'mediumtext', 'largetext']:
             return_string += ",'lk' ,'nlk'"
         return_string += "],\n"
     return return_string
@@ -494,6 +532,10 @@ def get_controller_index_where_statements(columns, ignore_columns):
     for column in columns:
         if column['COLUMN_NAME'] in ignore_columns:
             continue
+        if column['COLUMN_NAME'] == 'id':
+            continue
+        if column['COLUMN_NAME'][-3:] == '_id':
+            continue
         return_string +=  " " * 8 + f"""if (request('{column['COLUMN_NAME']}')) {{\n"""
         if column['DATA_TYPE'] in ['int', 'bigint', 'mediumint', 'smallint', 'decimal', 'double', 'float', 'real', 'date', 'datetime', 'time', 'timestamp']:
             return_string += " " * 12 + f"""$query->where("{column['COLUMN_NAME']}", request("{column['COLUMN_NAME']}"));\n"""
@@ -501,64 +543,104 @@ def get_controller_index_where_statements(columns, ignore_columns):
             return_string += " " * 12 + f"""$query->where("{column['COLUMN_NAME']}", "like", "%" . request("{column['COLUMN_NAME']}") ."%");\n"""
         if column['DATA_TYPE'] in ['tinyint']:
             return_string += " " * 12 + f"""$query->where("{column['COLUMN_NAME']}", request("{column['COLUMN_NAME']}"));\n"""
-        return_string +=  " " * 8 + f"""}}\n"""
+        return_string += " " * 8 + f"""}}\n"""
     return return_string
 
 
-def get_react_index_table_headings(columns, ignore_columns):
+def get_react_index_table_headings(columns, ignore_columns, belongs_to_list):
     return_string = ''
     for column in columns:
         if column['COLUMN_NAME'] in ignore_columns:
             continue
         if column['COLUMN_NAME'] == 'id':
             continue
+        col_name = column['COLUMN_NAME']
+        if remove_id_suffix(column['COLUMN_NAME']) != column['COLUMN_NAME']:
+            col_name = get_as_name_for_fk_col(column['COLUMN_NAME'], belongs_to_list)
         return_string += " " * 20 + f"""<TableHeading
-                      name="{column['COLUMN_NAME']}"
+                      name="{col_name}"
                       sort_field={{mergedQueryParams.sort_field}}
                       sort_direction={{mergedQueryParams.sort_direction}}
                       sortChanged={{sortChanged}}
                     >
-                      {any_case_to_title(column['COLUMN_NAME'])}
+                      {any_case_to_title(remove_id_suffix(column['COLUMN_NAME']))}
                     </TableHeading>\n"""
     return return_string
 
 
-def get_react_index_table_search_headings(columns, ignore_columns):
+def join_table_name(table1, table2):
+    # Remove any leading/trailing whitespace and convert to lowercase
+    table1 = table1.strip().lower()
+    table2 = table2.strip().lower()
+    # Check if inputs are valid (not empty and contain only letters)
+    if not table1.isalpha() or not table2.isalpha():
+        raise ValueError("Both inputs must be words containing only letters")
+    return "_".join(sorted([table1, table2]))
+
+
+def get_react_index_table_search_headings(columns, ignore_columns, belongs_to_list):
     return_string = ''
     for column in columns:
         if column['COLUMN_NAME'] in ignore_columns:
             continue
         if column['COLUMN_NAME'] == 'id':
             continue
+        col_name = column['COLUMN_NAME']
+        if remove_id_suffix(column['COLUMN_NAME']) != column['COLUMN_NAME']:
+            col_name = get_as_name_for_fk_col(column['COLUMN_NAME'], belongs_to_list)
         return_string += " " * 20 + f"""<TableCell>
                                             <TextField
                                                 fullWidth
                                                 defaultValue={{
-                                                    queryParams?.{column['COLUMN_NAME']} ?? ""
+                                                    queryParams?.{col_name} ?? ""
                                                 }}
-                                                placeholder="{any_case_to_title(column['COLUMN_NAME'])}"
+                                                placeholder="{any_case_to_title(col_name)}"
                                                 onBlur={{(e) =>
                                                     searchFieldChanged(
-                                                        "{column['COLUMN_NAME']}",
+                                                        "{col_name}",
                                                         e.target.value
                                                     )
                                                 }}
                                                 onKeyPress={{(e) =>
-                                                    onKeyPress("{column['COLUMN_NAME']}", e)
+                                                    onKeyPress("{col_name}", e)
                                                 }}
                                             />
                                         </TableCell>\n"""
     return return_string
 
 
-def react_index_table_data_cells(columns, ignore_columns, lower_case_singular_table_name):
+def react_index_table_data_cells(columns, ignore_columns, lower_case_singular_table_name, belongs_to_list):
     return_string = ''
     for column in columns:
         if column['COLUMN_NAME'] in ignore_columns:
             continue
         if column['COLUMN_NAME'] == 'id':
             continue
+        col_name = column['COLUMN_NAME']
+        if remove_id_suffix(column['COLUMN_NAME']) != column['COLUMN_NAME']:
+            col_name = get_as_name_for_fk_col(column['COLUMN_NAME'], belongs_to_list)
         return_string += " " * 20 + f"""<TableCell>
-                      {{ {lower_case_singular_table_name}.{column['COLUMN_NAME']} }}
+                      {{ {lower_case_singular_table_name}.{col_name} }}
                     </TableCell>\n"""
     return return_string
+
+
+def remove_id_suffix(s):
+    return s[:-3] if s.endswith('_id') else s
+
+
+def get_as_name_for_fk_col(foreign_key_column_name, fk_list):
+    for fk in fk_list:
+        if fk['column_name'] == foreign_key_column_name:
+            cap_string = f"{fk['table_name']}{fk['view_column']}"
+            return any_case_to_camel_case(cap_string)
+    return foreign_key_column_name
+
+
+def get_table_name_from_fk_column_name(column_name, belongs_to_list, ignore_columns):
+    for column in belongs_to_list:
+        if column['column_name'] in ignore_columns:
+            continue
+        if column['column_name'] == column_name:
+            return column['table_name']
+    return

@@ -1,6 +1,6 @@
-from codegenerator.laravel_11.utilities import react_index_table_data_cells
+from codegenerator.laravel_11.utilities import react_index_table_data_cells, get_react_index_table_headings, get_react_index_table_search_headings
 
-def get_index_code(ln, ci, belongs_to_list, has_many_list, has_many_through_list):
+def get_index_code(ln, ci, columns, ignore_columns, belongs_to_list, has_many_list, has_many_through_list):
     code = f"""import React from 'react';
 import {{ Head, Link, router }} from '@inertiajs/react';
 import {{ 
@@ -136,30 +136,41 @@ export default function Index({{ auth, {ln.lctn}, queryParams = {{}}, success }}
               <Table>
                 <TableHead>
                   <TableRow>
-{ci.react_index_table_headings}
+{get_react_index_table_headings(columns, ignore_columns, belongs_to_list)}
                     <th align="right">Actions</th>
                   </TableRow>
                 </TableHead>
                 
                 <TableHead>
                   <TableRow>
-{ci.react_index_table_search_headings}
+{get_react_index_table_search_headings(columns, ignore_columns, belongs_to_list)}
                     <TableCell></TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {{{ln.lctn}.data.map(({ln.lcs}) => (
-                    <TableRow key={{{ln.lcs}.id}}>
-{react_index_table_data_cells(ci.columns, ci.ignore_columns, ln.lcs)}                    
+                    <TableRow key={{{ln.lcs}.id}} 
+                                            className={{`even:bg-gray-100 dark:even:bg-gray-800
+                                            hover:bg-red-500 hover:text-white
+                                            cursor-pointer transition-colors duration-150 ease-in-out
+                                        `}}
+                                            onClick={{() =>
+                                                (window.location.href = route(
+                                                    "{ln.lcs}.show",
+                                                    {ln.lcs}.id
+                                                ))
+                                            }}>
+{react_index_table_data_cells(ci.columns, ci.ignore_columns, ln.lcs, belongs_to_list)}                    
                       <TableCell align="right">
                         <Link
                           href={{route('{ln.lcs}.edit', {ln.lcs}.id)}}
                           className="font-medium text-blue-600 dark:text-blue-500 hover:underline mx-1"
+                          onClick={{(e) => e.stopPropagation()}}
                         >
                           Edit
                         </Link>
                         <Button
-                          onClick={{() => delete{ln.cfs}({ln.lcs})}}
+                          onClick={{(e) => {{ e.stopPropagation(); delete{ln.cfs}({ln.lcs}) }} }}
                           className="font-medium text-red-600 dark:text-red-500 hover:underline mx-1"
                         >
                           Delete

@@ -17,16 +17,16 @@ class {ln.request_class_name} extends FormRequest
     public function rules() : array
     {{
         $method = $this->method();
-        if($method == 'PATCH')
+        if($method == 'POST')
         {{
             return [
-{ci.request_validation_fields}
+{ci.request_post_validation_fields}
             ];
         }}
         else
         {{
             return [
-{ci.request_patch_validation_fields}
+{ci.request_validation_fields}
             ];
         }}
     }}

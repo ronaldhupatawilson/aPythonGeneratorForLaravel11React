@@ -3,12 +3,19 @@ from codegenerator.laravel_11 import utilities
 
 
 def get_model_file_content(ln, ci, belongs_to_list, has_many_list, has_many_through_list ):
+    extended_class = 'Model'
+    use_class = "Illuminate\\Database\\Eloquent\\Model"
+    # s = ln.tn
+    # if lambda s: '_' in s:
+    #     extended_class = 'Pivot'
+    #     use_class = "Illuminate\\Database\\Eloquent\\Relations\\Pivot"
+
     model_code = f"""<?php
 
 namespace App\\Models;
 
 use Illuminate\\Database\\Eloquent\\Factories\\HasFactory;
-use Illuminate\\Database\\Eloquent\\Model;
+use {use_class};
 """
 
     if len(belongs_to_list) > 0:
@@ -24,18 +31,13 @@ use Illuminate\\Database\\Eloquent\\Model;
 """
     model_code += f"""
 
-class {ln.model_class_name} extends Model
+class {ln.model_class_name} extends {extended_class}
 {{
     use HasFactory;
     
     protected $table = '{ln.tn}';
     
     protected $fillable = [{ci.model_fillable_fields}];
-
-    /**
-     * Any columns that should be hidden for serialization - place them in this array and uncomment.
-     */
-    /*protected $hidden = [{ci.model_fillable_fields}];*/
     
     """
 
@@ -53,10 +55,7 @@ class {ln.model_class_name} extends Model
 
     if len(belongs_to_list) > 0:
         for belongs_to_table in belongs_to_list:
-            if isinstance(utilities.singular(belongs_to_table['table_name']), bool):
-                singular_table_name = belongs_to_table['table_name']
-            else:
-                singular_table_name = utilities.singular(belongs_to_table['table_name'])
+            singular_table_name = utilities.singular(belongs_to_table['table_name'])
             function_name = utilities.any_case_to_camel_case(belongs_to_table['column_name'].replace('_id', ''))
             model_code += (f"""
             
@@ -68,20 +67,18 @@ class {ln.model_class_name} extends Model
 
     if len(has_many_through_list) > 0:
         for many_to_many_item in has_many_through_list:
-            if isinstance(utilities.singular(many_to_many_item['table']), bool):
-                foreign_table_model_name = many_to_many_item['table']
-            else:
-                foreign_table_model_name = utilities.singular(many_to_many_item['table'])
+            foreign_table_model_name = utilities.singular(many_to_many_item['table_name'])
 
             if len(many_to_many_item['columns']) > 0:
                 with_pivot = f"->withPivot({many_to_many_item['columns']})"
             else:
                 with_pivot = ''
+            # you can specify a Model to use as the intermediate table - see https://laravel.com/docs/11.x/eloquent-relationships#syncing-associations - Defining Custom Intermediate Table Models
             model_code += (f"""
             
-    public function {many_to_many_item['table']}(): BelongsToMany
+    public function {many_to_many_item['table_name']}(): BelongsToMany
     {{
-        return $this->belongsToMany({utilities.any_case_to_pascal_case(foreign_table_model_name)}::class){with_pivot};
+        return $this->belongsToMany({utilities.any_case_to_pascal_case(foreign_table_model_name)}::class, '{"_".join(sorted([many_to_many_item['table_name'], ln.tn]))}'){with_pivot};
     }}
             """)
 

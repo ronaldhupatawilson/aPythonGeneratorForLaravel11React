@@ -3,6 +3,7 @@ from typing import List, Dict, Any
 from codegenerator.laravel_11 import utilities
 from pprint import pprint
 
+
 def get_first_text_like_column_from_table_name(connection: MySQLConnection, table_name: str) -> List[str]:
     cursor = connection.cursor()
 
@@ -45,7 +46,7 @@ def has_many(connection: MySQLConnection, table_name: str) -> List[str]:
     """
 
     cursor.execute(query1, (f"{singular_table_name}_id", f"%_{singular_table_name}_id", table_name, connection.database))
-    results = set((row[0], row[1]) for row in cursor.fetchall())
+    results = set((row[0], row[1], get_first_text_like_column_from_table_name(connection, row[0])) for row in cursor.fetchall())
 
     # Query for tables explicitly referencing this table through foreign keys
     query2 = """
@@ -59,13 +60,13 @@ def has_many(connection: MySQLConnection, table_name: str) -> List[str]:
     """
 
     cursor.execute(query2, (table_name, table_name, connection.database))
-    fk_results = set((row[0], row[1]) for row in cursor.fetchall())
+    fk_results = set((row[0], row[1], get_first_text_like_column_from_table_name(connection, row[0])) for row in cursor.fetchall())
 
     # Combine results
     results.update(fk_results)
 
     cursor.close()
-    return [{"table_name": table, "column_name": column} for table, column in results]
+    return [{"table_name": table, "column_name": column, 'view_column': view_col} for table, column, view_col in results]
 
 
 def belongs_to(connection: MySQLConnection, table_name: str) -> List[Dict[str, str]]:
@@ -162,6 +163,7 @@ def has_many_through(connection: MySQLConnection, table_name: str, excluded_colu
         columns = [row[0] for row in cursor.fetchall()]
 
         other_table_name = pivot_table.replace(table_name, '').replace('_', '').strip()
+        view_column = get_first_text_like_column_from_table_name(connection, other_table_name)
 
         other_table_name_singular = utilities.singular(other_table_name)
 
@@ -171,8 +173,9 @@ def has_many_through(connection: MySQLConnection, table_name: str, excluded_colu
                          and col != f"{other_table_name_singular}_id"]
 
         results.append({
-                "table": other_table_name,
-                "columns": other_columns
+                "table_name": other_table_name,
+                "columns": other_columns,
+                "view_column": view_column
             })
 
     cursor.close()

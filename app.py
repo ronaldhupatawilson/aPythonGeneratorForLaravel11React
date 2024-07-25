@@ -145,7 +145,7 @@ def main():
         has_many_through_list = model_utilities.has_many_through(connection, table, ignore_columns)
 
         # write the  controller file
-        web_controller_file_content = web_controller.get_web_controller_file_content(ln, ci, belongs_to_list, has_many_list, has_many_through_list)
+        web_controller_file_content = web_controller.get_web_controller_file_content(ln, ci, ignore_columns, belongs_to_list, has_many_list, has_many_through_list, connection)
         file_path = output_folder_path + ln.web_controller_file_path
         file_name = ln.web_controller_file_name
         os.makedirs(file_path, exist_ok=True)
@@ -202,7 +202,7 @@ def main():
             file.write(resource_file_content)
 
         # write the react index file
-        react_index_file_content = react_index.get_index_code(ln, ci, belongs_to_list, has_many_list, has_many_through_list)
+        react_index_file_content = react_index.get_index_code(ln, ci, columns, ignore_columns,  belongs_to_list, has_many_list, has_many_through_list)
         file_path = output_folder_path + ln.react_table_components_folder
         file_name = ln.react_index_file_name
         os.makedirs(file_path, exist_ok=True)
@@ -210,7 +210,7 @@ def main():
             file.write(react_index_file_content)
 
         # write the react create file
-        react_create_file_content = react_create.get_create_code(ln, ci, belongs_to_list, has_many_list, has_many_through_list)
+        react_create_file_content = react_create.get_create_code(ln, ci, columns, ignore_columns,  belongs_to_list, has_many_list, has_many_through_list, connection)
         file_path = output_folder_path + ln.react_table_components_folder
         file_name = ln.react_create_file_name
         os.makedirs(file_path, exist_ok=True)
@@ -218,7 +218,7 @@ def main():
             file.write(react_create_file_content)
 
         # write the react show file
-        react_show_file_content = react_show.get_show_code(ln, ci, belongs_to_list, has_many_list, has_many_through_list)
+        react_show_file_content = react_show.get_show_code(ln, ci, columns, ignore_columns, belongs_to_list, has_many_list, has_many_through_list, connection)
         file_path = output_folder_path + ln.react_table_components_folder
         file_name = ln.react_show_file_name
         os.makedirs(file_path, exist_ok=True)
@@ -259,12 +259,12 @@ def main():
 
 
         # write the resource collection file
-        resource_collection_file_content = resource_collection.get_resource_collection_file_content(ln, ci)
-        file_path = output_folder_path + ln.resource_collection_file_path
-        file_name = ln.resource_collection_file_name
-        os.makedirs(file_path, exist_ok=True)
-        with open(os.path.join(file_path, file_name), 'w') as file:
-            file.write(resource_collection_file_content)
+        # resource_collection_file_content = resource_collection.get_resource_collection_file_content(ln, ci)
+        # file_path = output_folder_path + ln.resource_collection_file_path
+        # file_name = ln.resource_collection_file_name
+        # os.makedirs(file_path, exist_ok=True)
+        # with open(os.path.join(file_path, file_name), 'w') as file:
+        #     file.write(resource_collection_file_content)
 
 
         #     write the controller unit test file
