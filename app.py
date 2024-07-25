@@ -128,7 +128,6 @@ def main():
     # cache_system = get_input(f"Enter cache type [none|redis|memcached|dynamodb]- ({default_cache_system}): ", default_cache_system)
     # use_inertia = get_input(f"Use Inertia ({default_use_inertia}): ", default_use_inertia)
 
-
     connection = connect_to_database(host, user, password, database)
     data = fetch_table_and_column_info(connection, database)
 
@@ -145,13 +144,12 @@ def main():
         has_many_through_list = model_utilities.has_many_through(connection, table, ignore_columns)
 
         # write the  controller file
-        web_controller_file_content = web_controller.get_web_controller_file_content(ln, ci, ignore_columns, belongs_to_list, has_many_list, has_many_through_list, connection)
+        web_controller_file_content = web_controller.get_web_controller_file_content(ln, ci, columns, ignore_columns, belongs_to_list, has_many_list, has_many_through_list, connection)
         file_path = output_folder_path + ln.web_controller_file_path
         file_name = ln.web_controller_file_name
         os.makedirs(file_path, exist_ok=True)
         with open(os.path.join(file_path, file_name), 'w') as file:
             file.write(web_controller_file_content)
-
 
         # write the factory file
         factory_file_content = factory.get_factory_file_content(ln, ci)
@@ -226,7 +224,7 @@ def main():
             file.write(react_show_file_content)
 
         # write the react edit file
-        react_edit_file_content = react_edit.get_edit_code(ln, ci, belongs_to_list, has_many_list, has_many_through_list)
+        react_edit_file_content = react_edit.get_edit_code(ln, ci, columns, ignore_columns, belongs_to_list, has_many_list, has_many_through_list, connection)
         file_path = output_folder_path + ln.react_table_components_folder
         file_name = ln.react_edit_file_name
         os.makedirs(file_path, exist_ok=True)

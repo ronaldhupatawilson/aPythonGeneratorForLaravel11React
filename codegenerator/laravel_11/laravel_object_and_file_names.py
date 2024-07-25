@@ -84,7 +84,7 @@ class LaravelObjectAndFileNames:
         self.filter_class_name = utilities.any_case_to_pascal_case(table_name)+'Filter'
 
         self.react_page_path = 'resources/js/Pages/'
-        self.react_table_components_folder = 'resources/js/Pages/' + utilities.cap_first_single(table_name)+"/"
+        self.react_table_components_folder = 'resources/js/Pages/' + utilities.any_case_to_pascal_case(utilities.singular( table_name))+"/"
         self.react_create_file_name = 'Create.tsx'
         self.react_show_file_name = 'Show.tsx'
         self.react_index_file_name = 'Index.tsx'

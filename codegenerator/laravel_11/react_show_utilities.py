@@ -39,43 +39,48 @@ def get_props(columns, ignore_columns):
     return ret_string
 
 
-def get_display_fields(columns, ignore_columns, belongs_to_list, connection):
+def get_display_fields(columns, ignore_columns, belongs_to_list, connection, ln):
     ret_string = ""
     for column in columns:
         if column['COLUMN_NAME'] in ignore_columns or column['COLUMN_NAME'] == 'id':
             continue
         if column['COLUMN_NAME'].split('/')[-1].lower() == 'path':
             ret_string += f"""
-                      <div className="flex justify-between">
-                        <div>
-                            {utilities.any_case_to_title({column['COLUMN_NAME']})}
-                        </div>
-                        <div>
-                        Some media goes here - shows visibly if image or video - <a href="{{data.{column['COLUMN_NAME']}}}">{{data.{column['COLUMN_NAME']}}}</
-                        </div>
-                      </div>\n"""
+                    <div className="flex gap-10">
+                      <div className="text-2xl font-bold">
+                         {utilities.any_case_to_title({column['COLUMN_NAME']})}
+                      </div>
+                      <div>
+                        Some media goes here - shows visibly if image or video - <a href="{{{ln.lcs}.{column['COLUMN_NAME']}}}">{{data.{column['COLUMN_NAME']}}}</
+                      </div>
+                    </div>\n"""
         else:
             if utilities.remove_id_suffix(column['COLUMN_NAME']) != column['COLUMN_NAME']:
-                ret_string += f"""                        <div className="flex justify-between mb-4">
-                          <div>{utilities.any_case_to_title(utilities.remove_id_suffix(column['COLUMN_NAME']))}</div>
-                          <div>{{ data.{model_utilities.get_first_text_like_column_from_table_name(connection, utilities.get_table_name_from_fk_column_name(column['COLUMN_NAME'], belongs_to_list, ignore_columns))} }}</div>
-                        </div>\n"""
+                ret_string += f"""
+                    <div className="flex gap-10 mb-4">
+                      <div className="text-2xl font-bold">{utilities.any_case_to_title(utilities.remove_id_suffix(column['COLUMN_NAME']))}</div>
+                      <div>{{ {ln.lcs}.{utilities.any_case_to_camel_case(utilities.plural(utilities.remove_id_suffix(column['COLUMN_NAME']))+model_utilities.get_first_text_like_column_from_table_name(connection, utilities.get_table_name_from_fk_column_name(column['COLUMN_NAME'], belongs_to_list, ignore_columns)))} }}</div>
+                    </div>\n"""
             else:
-                ret_string += f"""<div className="flex justify-between mb-4"><div>{column['COLUMN_NAME']}</div><div>{{data.{column['COLUMN_NAME']}}}</div></div>\n"""
+                ret_string += f"""
+                    <div className="flex gap-10 mb-4">
+                      <div className="text-2xl font-bold">{utilities.any_case_to_title(column['COLUMN_NAME'])}</div>
+                      <div>{{{ln.lcs}.{column['COLUMN_NAME']}}}</div>
+                    </div>\n"""
 
     return ret_string
 
 
 def get_own_interface(columns, ignore_columns, belongs_to_list, ln):
-    ret_string = f"""\ninterface {utilities.any_case_to_pascal_case(utilities.singular(ln.tn))} {{
-  \n"""
+    ret_string = f"""\ninterface {utilities.any_case_to_camel_case(ln.lcs)} {{
+  """
     ret_string += utilities.get_typescript_interface_fields(columns, ignore_columns)
     for fk in belongs_to_list:
         if fk['column_name'] in ignore_columns:
             continue
         ret_string += f"""  {(fk['table_name']+fk['view_column']).lower()}: string
-  }}\n"""
-    ret_string += """ }} """
+  """
+    ret_string += """ } """
     return ret_string
 
 

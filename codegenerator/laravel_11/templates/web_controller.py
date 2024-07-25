@@ -1,7 +1,7 @@
 from codegenerator.laravel_11 import utilities
 from codegenerator.laravel_11 import model_utilities
 
-def get_web_controller_file_content(ln, ci, ignore_columns, belongs_to_list, has_many_list, has_many_through_list, connection):
+def get_web_controller_file_content(ln, ci,columns, ignore_columns, belongs_to_list, has_many_list, has_many_through_list, connection):
     controller_code = f"""<?php
 
 namespace App\\Http\\Controllers;
@@ -134,6 +134,8 @@ class {ln.web_controller_class_name} extends Controller
             if not is_first:
                 controller_code += ' ' * 12
             controller_code += f"""->leftJoin('{fk_info['table_name']}','{fk_info['table_name']}.id', '=', '{ln.tn}.{fk_info['column_name']}')\n"""
+            sql_real_ref = f"""{fk_info['table_name']}.{fk_info['view_column']}"""
+            as_name = f"""{utilities.any_case_to_camel_case(fk_info['table_name']+fk_info['view_column'])}"""
             select_ref_item = f"""'{sql_real_ref} as {as_name}'"""
             select_ref.append(select_ref_item)
             is_first = False
@@ -153,34 +155,55 @@ class {ln.web_controller_class_name} extends Controller
      */
     public function edit({ln.model_class_name} ${ln.lcs})
     {{
-        ${ln.lctn} = {ln.model_class_name}::query()->orderBy('name', 'asc')->get();
-        $users = User::query()->orderBy('name', 'asc')->get();
+        $query = {ln.model_class_name}::query();"""
+    if len(belongs_to_list) > 0:
+        select_ref = []
+        is_first = True
+        controller_code += f"""
+        $query"""
+        for fk_info in belongs_to_list:
+            if not is_first:
+                controller_code += ' ' * 12
+            controller_code += f"""->leftJoin('{fk_info['table_name']}','{fk_info['table_name']}.id', '=', '{ln.tn}.{fk_info['column_name']}')\n"""
+            sql_real_ref = f"""{fk_info['table_name']}.{fk_info['view_column']}"""
+            as_name = f"""{utilities.any_case_to_camel_case(fk_info['table_name']+fk_info['view_column'])}"""
+            select_ref_item = f"""'{sql_real_ref} as {as_name}'"""
+            select_ref.append(select_ref_item)
+            is_first = False
+        comma_separated_list = ", ".join(select_ref)
+        controller_code += ' ' * 12  + f"""->select ('{ln.tn}.*', {comma_separated_list});"""
+    controller_code += f"""
+        $query->where('{ln.tn}.id', ${ln.lcs}->id);
+        ${ln.lcs}Data = $query->first();"""
+    for fk_meta in belongs_to_list:
+        if fk_meta['column_name'] in ignore_columns:
+            continue
+        controller_code += f"""\n        ${fk_meta['table_name']} = {utilities.any_case_to_pascal_case(utilities.singular(fk_meta['table_name']))}::query()->orderBy('{model_utilities.get_first_text_like_column_from_table_name(connection, fk_meta['table_name'])}', 'asc')->get();"""
+
+    controller_code += f"""
 
         return inertia("{ln.model_class_name}/Edit", [
-            '{ln.lcs}' => new {ln.model_class_name}Resource(${ln.lcs}),
-            '{ln.lctn}' => {ln.model_class_name}Resource::collection(${ln.lctn}),
-            'users' => UserResource::collection($users),
-        ]);
+            "{ln.lcs}" => new {ln.model_class_name}Resource(${ln.lcs}Data),\n"""
+
+    for fk_meta in belongs_to_list:
+        if fk_meta['column_name'] in ignore_columns:
+            continue
+
+        controller_code += f"""           '{fk_meta['table_name']}' => {utilities.any_case_to_pascal_case(utilities.singular(fk_meta['table_name']))}Resource::collection(${fk_meta['table_name']}),\n"""
+        is_first = False
+    controller_code += f"""        ]);
     }}
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Update{ln.model_class_name}Request $request, {ln.model_class_name} ${ln.lcs})
+    public function update({ln.model_class_name}Request $request, {ln.model_class_name} ${ln.lcs})
     {{
         $data = $request->validated();
-        $image = $data['image'] ?? null;
-        $data['updated_by'] = Auth::id();
-        if ($image) {{
-            if (${ln.lcs}->image_path) {{
-                Storage::disk('public')->deleteDirectory(dirname(${ln.lcs}->image_path));
-            }}
-            $data['image_path'] = $image->store('{ln.lcs}/' . Str::random(), 'public');
-        }}
         ${ln.lcs}->update($data);
 
         return to_route('{ln.lcs}.index')
-            ->with('success', "{ln.model_class_name} \\"${ln.lcs}->name\\" was updated");
+            ->with('success', "{ln.model_class_name} \\"${ln.lcs}->{utilities.get_first_textlike_column(columns, ignore_columns)}\\" was updated");
     }}
 
     /**

@@ -1,4 +1,4 @@
-
+from codegenerator.laravel_11 import utilities
 from codegenerator.laravel_11 import react_show_utilities
 
 
@@ -31,28 +31,22 @@ export interface Auth {{
 
 export default function Create({{ auth, {ln.lcs} }}: Props) {{
 
-
-  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {{
-    e.preventDefault();
-    post(route('{ln.lcs}.store'));
-  }};
-
   return (
     <AuthenticatedLayout
       user={{auth.user}}
       header={{
         <Box className="flex justify-between items-center">
           <Typography variant="h6" className="text-gray-800 dark:text-gray-200">
-            {ln.model_class_name} : {{ {ln.lcs}.{} }}
+            {ln.model_class_name} : {{ {ln.lcs}.{utilities.get_first_textlike_column(columns, ignore_columns)} }}
           </Typography>
         </Box>
       }}
     >
-      <Head title="{ln.cfp}" />
+      <Head title={{`{ln.cfp} : ${{ {ln.lcs}.{utilities.get_first_textlike_column(columns, ignore_columns)} }}`}} />
 
       <Container className="py-12">
         <Paper className="p-4 sm:p-8 bg-white dark:bg-gray-800 shadow sm:rounded-lg">
-{react_show_utilities.get_display_fields(columns, ignore_columns, belongs_to_list, connection)}          
+{react_show_utilities.get_display_fields(columns, ignore_columns, belongs_to_list, connection, ln)}          
 
         </Paper>
       </Container>
