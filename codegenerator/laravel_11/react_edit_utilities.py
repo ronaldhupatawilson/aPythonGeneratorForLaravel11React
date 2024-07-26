@@ -45,6 +45,7 @@ def get_create_form_fields(columns, ignore_columns, belongs_to_list, connection)
     for column in columns:
         if column['COLUMN_NAME'] in ignore_columns or column['COLUMN_NAME'] == 'id':
             continue
+        ret_string += f"""<div className="p-6">\n"""
         if column['COLUMN_NAME'].split('/')[-1].lower() == 'path':
             ret_string += f"""
                       <Box className="mb-4">
@@ -83,7 +84,6 @@ def get_create_form_fields(columns, ignore_columns, belongs_to_list, connection)
                                 }}
                                 error={{!!errors.{column['COLUMN_NAME']}}}
                             >
-                                <MenuItem value="">SELECT {utilities.any_case_to_title(utilities.remove_id_suffix(column['COLUMN_NAME']))}</MenuItem>
                                 {{{table_name}.map((item) => (
                                   <MenuItem key={{item.id}} value={{item.id}}>
                                     {{item.{model_utilities.get_first_text_like_column_from_table_name(connection, utilities.get_table_name_from_fk_column_name(column['COLUMN_NAME'], belongs_to_list, ignore_columns))} }}
@@ -99,14 +99,14 @@ def get_create_form_fields(columns, ignore_columns, belongs_to_list, connection)
             else:
                 ret_string += f"""            <TextField
               fullWidth
-              label="{column['COLUMN_NAME']}"
+              label="{utilities.any_case_to_title(column['COLUMN_NAME'])}"
               value={{data.{column['COLUMN_NAME']}}}
               onChange={{(e) => setData('{column['COLUMN_NAME']}', e.target.value)}}
               error={{!!errors.{column['COLUMN_NAME']}}}
               helperText={{errors.{column['COLUMN_NAME']}}}
               className="my-4"
             />"""
-
+        ret_string += "</div>"
     return ret_string
 
 

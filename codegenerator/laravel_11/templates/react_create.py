@@ -64,8 +64,9 @@ export default function Create({{ {react_create_utilities.get_props_interfaces_a
       <Container className="py-12">
         <Paper className="p-4 sm:p-8 bg-white dark:bg-gray-800 shadow sm:rounded-lg">
           <form onSubmit={{onSubmit}}>
+            <div className="grid grid-gap-4">
 {react_create_utilities.get_create_form_fields(columns, ignore_columns, belongs_to_list, connection)}          
-          
+           </div>
 
             <Box className="mt-4 text-right">
               <Link

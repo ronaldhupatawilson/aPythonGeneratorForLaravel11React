@@ -425,12 +425,13 @@ def get_resource_array(columns, ignore_columns, belongs_to_list, has_many_list, 
             function_name = belongs_to_item['table_name']
             as_name = get_as_name_for_fk_col(belongs_to_item['column_name'], belongs_to_list)
             return_string += ' ' * 11 + f""" 
-            '{function_name}' => $this->when($this->relationLoaded('{function_name}'), function () {{
-                return [
-                    'id' => $this->{function_name}->id,
-                    '{belongs_to_item['view_column']}' => $this->{function_name}->{belongs_to_item['view_column']}
-                ];
-            }}),
+            # '{function_name}' => $this->when($this->relationLoaded('{function_name}'), function () {{
+            #     return [
+            #         'id' => $this->{function_name}->id,
+            #         '{belongs_to_item['view_column']}' => $this->{function_name}->{belongs_to_item['view_column']}
+            #     ];
+            # }}),
+            '{any_case_to_camel_case(belongs_to_item['table_name'])}' => new {any_case_to_pascal_case(singular(belongs_to_item['table_name']))}Resource($this->{any_case_to_camel_case(singular(belongs_to_item['table_name']))}),
             '{as_name}' => $this->{as_name},\n"""
 
     if len(has_many_list) > 0:

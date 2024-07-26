@@ -59,7 +59,7 @@ export default function Create({{ {react_edit_utilities.get_props_interfaces_as_
       header={{
         <Box className="flex justify-between items-center">
           <Typography variant="h6" className="text-gray-800 dark:text-gray-200">
-            Create a new {ln.model_class_name}
+            Edit {ln.model_class_name}
           </Typography>
         </Box>
       }}
@@ -69,8 +69,9 @@ export default function Create({{ {react_edit_utilities.get_props_interfaces_as_
       <Container className="py-12">
         <Paper className="p-4 sm:p-8 bg-white dark:bg-gray-800 shadow sm:rounded-lg">
           <form onSubmit={{onSubmit}}>
+          <div className="grid grid-gap-4">
 {react_edit_utilities.get_create_form_fields(columns, ignore_columns, belongs_to_list, connection)}          
-          
+          </div>
 
             <Box className="mt-4 text-right">
               <Link
