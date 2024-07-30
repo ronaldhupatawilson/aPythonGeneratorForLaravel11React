@@ -15,6 +15,7 @@ class LaravelObjectAndFileNames:
         self.lcp = utilities.lower_case_plural(table_name)
         self.cfp = utilities.cap_first_plural(table_name)
         self.tn = table_name
+        self.tns = utilities.singular(table_name)
         self.lctn = table_name.lower()
         self.title = utilities.any_case_to_title(table_name)
 

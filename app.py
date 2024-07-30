@@ -232,7 +232,7 @@ def main():
             file.write(react_edit_file_content)
 
         # write the react data_table file
-        react_data_table_file_content = react_data_table.get_data_table_code(ln, ci, belongs_to_list, has_many_list, has_many_through_list)
+        react_data_table_file_content = react_data_table.get_data_table_code(ln, ci, columns, ignore_columns, belongs_to_list, has_many_list, has_many_through_list, connection)
         file_path = output_folder_path + ln.react_table_components_folder
         file_name = ln.react_data_table_file_name
         os.makedirs(file_path, exist_ok=True)

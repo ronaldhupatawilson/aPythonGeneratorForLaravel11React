@@ -1,5 +1,6 @@
 import inflect
 import re
+from mysql.connector.connection import MySQLConnection
 from pprint import pprint
 
 p = inflect.engine()
@@ -422,29 +423,16 @@ def get_resource_array(columns, ignore_columns, belongs_to_list, has_many_list, 
                 return_string += f"$this->{column['COLUMN_NAME']},\n"
     if len(belongs_to_list) > 0:
         for belongs_to_item in belongs_to_list:
-            function_name = belongs_to_item['table_name']
             as_name = get_as_name_for_fk_col(belongs_to_item['column_name'], belongs_to_list)
-            return_string += ' ' * 11 + f""" 
-            # '{function_name}' => $this->when($this->relationLoaded('{function_name}'), function () {{
-            #     return [
-            #         'id' => $this->{function_name}->id,
-            #         '{belongs_to_item['view_column']}' => $this->{function_name}->{belongs_to_item['view_column']}
-            #     ];
-            # }}),
+            return_string += ' ' * 11 + f"""
             '{any_case_to_camel_case(belongs_to_item['table_name'])}' => new {any_case_to_pascal_case(singular(belongs_to_item['table_name']))}Resource($this->{any_case_to_camel_case(singular(belongs_to_item['table_name']))}),
             '{as_name}' => $this->{as_name},\n"""
 
     if len(has_many_list) > 0:
         for has_many_item in has_many_list:
-            function_name = has_many_item['table_name']
-            resource_name = any_case_to_pascal_case(singular(has_many_item['table_name']))+"Resource"
-            return_string += ' ' * 11 + f""" 
-            '{function_name}' => $this->when($this->relationLoaded('{function_name}'), function () {{
-                return [
-                    'id' => $this->{function_name}->id,
-                    '{has_many_item['view_column']}' => $this->{function_name}->{has_many_item['view_column']}
-                ];
-            }}),\n"""
+            as_name = get_as_name_for_fk_col(has_many_item['column_name'], has_many_list)
+            return_string += ' ' * 11 + f"""
+            '{any_case_to_camel_case(has_many_item['table_name'])}' => new {any_case_to_pascal_case(singular(has_many_item['table_name']))}Resource($this->{any_case_to_camel_case(singular(has_many_item['table_name']))}),\n"""
 
     if len(has_many_through_list) > 0:
         for has_many_through_item in has_many_through_list:
@@ -587,15 +575,17 @@ def get_react_index_table_search_headings(columns, ignore_columns, belongs_to_li
         if column['COLUMN_NAME'] == 'id':
             continue
         col_name = column['COLUMN_NAME']
+        tab_name = column['COLUMN_NAME']
         if remove_id_suffix(column['COLUMN_NAME']) != column['COLUMN_NAME']:
             col_name = get_as_name_for_fk_col(column['COLUMN_NAME'], belongs_to_list)
+            tab_name = get_table_name_from_fk_column_name(column['COLUMN_NAME'], belongs_to_list, ignore_columns)
         return_string += " " * 20 + f"""<TableCell>
                                             <TextField
                                                 fullWidth
                                                 defaultValue={{
                                                     queryParams?.{col_name} ?? ""
                                                 }}
-                                                placeholder="{any_case_to_title(col_name)}"
+                                                placeholder="{any_case_to_title(singular(tab_name))}"
                                                 onBlur={{(e) =>
                                                     searchFieldChanged(
                                                         "{col_name}",
@@ -610,7 +600,7 @@ def get_react_index_table_search_headings(columns, ignore_columns, belongs_to_li
     return return_string
 
 
-def react_index_table_data_cells(columns, ignore_columns, lower_case_singular_table_name, belongs_to_list):
+def react_index_table_data_cells(columns, ignore_columns, table_name, belongs_to_list):
     return_string = ''
     for column in columns:
         if column['COLUMN_NAME'] in ignore_columns:
@@ -621,7 +611,7 @@ def react_index_table_data_cells(columns, ignore_columns, lower_case_singular_ta
         if remove_id_suffix(column['COLUMN_NAME']) != column['COLUMN_NAME']:
             col_name = get_as_name_for_fk_col(column['COLUMN_NAME'], belongs_to_list)
         return_string += " " * 20 + f"""<TableCell>
-                      {{ {lower_case_singular_table_name}.{col_name} }}
+                      {{ {table_name}.{col_name} }}
                     </TableCell>\n"""
     return return_string
 
@@ -645,3 +635,44 @@ def get_table_name_from_fk_column_name(column_name, belongs_to_list, ignore_colu
         if column['column_name'] == column_name:
             return column['table_name']
     return
+
+
+def get_typescript_type_from_column_type(type):
+    if type in ['int', 'bigint', 'mediumint', 'smallint', 'decimal', 'double', 'float', 'real']:
+        return 'number'
+    if type in ['char', 'varchar', 'text', 'smalltext', 'mediumtext', 'largetext', 'datetime', 'time', 'timestamp']:
+        return 'string'
+    if type in ['date']:
+        return 'string'
+    if type == 'tinyint':
+        return 'bool'
+    return False
+
+
+def get_interface_info_from_table_name(connection: MySQLConnection, table_name: str, ignore_columns):
+    cursor = connection.cursor()
+    query = """
+    SELECT COLUMN_NAME, DATA_TYPE
+    FROM INFORMATION_SCHEMA.COLUMNS JOIN INFORMATION_SCHEMA.TABLES ON (COLUMNS.TABLE_NAME = TABLES.TABLE_NAME AND COLUMNS.TABLE_SCHEMA = TABLES.TABLE_SCHEMA)
+    WHERE COLUMNS.TABLE_NAME = %s
+    AND COLUMNS.TABLE_SCHEMA = %s
+    AND TABLES.TABLE_TYPE = 'BASE TABLE'
+    ORDER BY COLUMNS.ORDINAL_POSITION
+    """
+
+    cursor.execute(query, (table_name, connection.database))
+    results = cursor.fetchall()
+
+    return_string = f"interface {any_case_to_camel_case(singular(table_name))} {{\n"
+
+    for row in results:
+        column_name = row[0]
+        if column_name in ignore_columns:
+            continue
+        data_type = row[1]
+        typescript_type = get_typescript_type_from_column_type(data_type)
+        return_string += f"    {column_name}: {typescript_type};\n"
+
+    return_string += "}\n"
+    cursor.close()
+    return return_string

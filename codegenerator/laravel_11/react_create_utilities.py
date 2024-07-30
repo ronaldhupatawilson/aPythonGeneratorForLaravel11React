@@ -98,7 +98,7 @@ def get_create_form_fields(columns, ignore_columns, belongs_to_list, connection)
             else:
                 ret_string += f"""            <TextField
               fullWidth
-              label="{column['COLUMN_NAME']}"
+              label="{utilities.any_case_to_title(column['COLUMN_NAME'])}"
               value={{data.{column['COLUMN_NAME']}}}
               onChange={{(e) => setData('{column['COLUMN_NAME']}', e.target.value)}}
               error={{!!errors.{column['COLUMN_NAME']}}}

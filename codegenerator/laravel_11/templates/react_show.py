@@ -1,19 +1,33 @@
 from codegenerator.laravel_11 import utilities
 from codegenerator.laravel_11 import react_show_utilities
 
-
 def get_show_code(ln, ci, columns, ignore_columns, belongs_to_list, has_many_list, has_many_through_list, connection):
     code = f"""import React from 'react';
 import {{ Head, Link }} from '@inertiajs/react';
-import {{ 
-  Typography,
-  Box,
-  Container,
-  Paper
-}} from '@mui/material';
+import {{ Typography, Box, Container, Paper }} from '@mui/material';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-
-
+"""
+    comma_separated_has_many_list = ""
+    query_params_interface_string = ""
+    props_has_many_string = ""
+    included_components = ""
+    has_many_interfaces = ""
+    if len(has_many_list) > 0:
+        for has_many in has_many_list:
+            code += f"""import {utilities.any_case_to_pascal_case(utilities.singular(has_many['table_name']))} from "../{utilities.any_case_to_pascal_case(utilities.singular(has_many['table_name']))}/DataTable"; \n"""
+            comma_separated_has_many_list += f"""{has_many['table_name']}, """
+            query_params_interface_string += f"""    {has_many['table_name']}_sort_fields: string;\n    {has_many['table_name']}_sort_direction: string ;\n"""
+            props_has_many_string += f"""    {has_many['table_name']}: {utilities.lower_case_single(has_many['table_name'])}[];\n"""
+            included_components += f"""                <Paper className="p-4 mt-5 sm:p-8 bg-white dark:bg-gray-800 shadow sm:rounded-lg">
+                    <{utilities.any_case_to_pascal_case(utilities.singular(has_many['table_name']))}
+                        auth={{auth}}
+                        {has_many['table_name']}={{ {has_many['table_name']} }}
+                        queryParams={{queryParams}}
+                        success={{success}}
+                    />
+                </Paper>\n"""
+            has_many_interfaces += utilities.get_interface_info_from_table_name(connection, has_many['table_name'], ignore_columns)
+    code += f"""
 export interface User {{
     id: number;
     name: string;
@@ -27,10 +41,23 @@ export interface Auth {{
 
 {react_show_utilities.get_own_interface(columns, ignore_columns, belongs_to_list, ln)}
 
-{react_show_utilities.get_props_interface(ln)}
+{has_many_interfaces}
 
-export default function Create({{ auth, {ln.lcs} }}: Props) {{
+interface QueryParams {{
+    sort_field: string;
+    sort_direction: string;
+{query_params_interface_string}
+}}
 
+interface Props {{
+    auth: Auth;
+    location: location;
+{props_has_many_string}    queryParams: QueryParams | null;
+    success: string;
+}}
+
+
+export default function Create({{ auth, {ln.lcs}, {comma_separated_has_many_list}queryParams, success }}: Props) {{
   return (
     <AuthenticatedLayout
       user={{auth.user}}
@@ -49,6 +76,7 @@ export default function Create({{ auth, {ln.lcs} }}: Props) {{
 {react_show_utilities.get_display_fields(columns, ignore_columns, belongs_to_list, connection, ln)}          
 
         </Paper>
+{included_components}
       </Container>
     </AuthenticatedLayout>
   );

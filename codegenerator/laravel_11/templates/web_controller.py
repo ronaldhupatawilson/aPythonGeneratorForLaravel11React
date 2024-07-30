@@ -67,7 +67,7 @@ class {ln.web_controller_class_name} extends Controller
         }}\n\n"""
     controller_code += f"""
         ${ln.lctn} = $query->orderBy($sortField, $sortDirection)
-            ->paginate(10)
+            ->paginate(20)
             ->onEachSide(1);
 
         return inertia("{ln.model_class_name}/Index", [
@@ -90,6 +90,15 @@ class {ln.web_controller_class_name} extends Controller
         controller_code += f"""\n        ${fk_meta['table_name']} = {utilities.any_case_to_pascal_case(utilities.singular(fk_meta['table_name']))}::query()->orderBy('{model_utilities.get_first_text_like_column_from_table_name(connection, fk_meta['table_name'])}', 'asc')->get();"""
 
     controller_code += f"""
+
+
+        $referrer = url()->previous();
+        $route = app('router')->getRoutes()->match(request()->create($referrer));
+        
+        session()->put('previous_route', [
+            'name' => $route->getName(),
+            'params' => $route->parameters()
+        ]);
 
         return inertia("{ln.model_class_name}/Create", ["""
     is_first = True
@@ -114,8 +123,10 @@ class {ln.web_controller_class_name} extends Controller
         $data = $request->validated();
        
         {ln.model_class_name}::create($data);
+        
+        $previousRoute = session()->pull('previous_route', ['name' => '{ln.lcs}.index', 'params' => []]);
 
-        return to_route('{ln.lcs}.index')
+        return to_route($previousRoute['name'], $previousRoute['params'])
             ->with('success', '{ln.model_class_name} was created');
     }}
 
@@ -123,8 +134,41 @@ class {ln.web_controller_class_name} extends Controller
      * Display the specified resource.
      */
     public function show({ln.model_class_name} ${ln.lcs})
-    {{
-        $query = {ln.model_class_name}::query();"""
+    {{"""
+    has_many_arr = []
+    if len(has_many_list) > 0:
+        for has_many_info in has_many_list:
+            var_name = has_many_info['table_name']
+            resource_name = utilities.any_case_to_pascal_case((utilities.singular(has_many_info['table_name'])))
+            prop_string = f"""            '{var_name}' => {resource_name}Resource::collection(${var_name}),\n"""
+            has_many_arr.append(prop_string)
+            controller_code += f"""
+        $query = ${ln.lcs}->{var_name}();
+        ${var_name}_sortField = request("{var_name}_sort_field", 'id');
+        ${var_name}_sortDirection = request("{var_name}_sort_direction", "desc");
+        ${var_name} = $query->orderBy(${var_name}_sortField, ${var_name}_sortDirection)
+            ->paginate(20)
+            ->onEachSide(1);
+            """
+    belongs_to_many_arr = []
+    if len(has_many_through_list) > 0:
+        for belongs_to_many_info in has_many_list:
+            var_name = belongs_to_many_info['table_name']
+            resource_name = utilities.any_case_to_pascal_case((utilities.singular(belongs_to_many_info['table_name'])))
+            prop_string = f"""            '{var_name}' => {resource_name}Resource::collection(${var_name}),\n"""
+            belongs_to_many_arr.append(prop_string)
+            controller_code += f"""
+        $query = ${ln.lcs}->{var_name}();
+        ${var_name}_sortField = request("{var_name}_sort_field", 'id');
+        ${var_name}_sortDirection = request("{var_name}_sort_direction", "desc");
+        ${var_name} = $query->orderBy(${var_name}_sortField, ${var_name}_sortDirection)
+            ->paginate(20)
+            ->onEachSide(1);
+            """
+
+
+
+    controller_code += f"""\n\n        $query = {ln.model_class_name}::query();\n"""
     if len(belongs_to_list) > 0:
         select_ref = []
         is_first = True
@@ -141,13 +185,18 @@ class {ln.web_controller_class_name} extends Controller
             is_first = False
         comma_separated_list = ", ".join(select_ref)
         controller_code += ' ' * 12  + f"""->select ('{ln.tn}.*', {comma_separated_list});"""
-    controller_code += f"""
-        $query->where('{ln.tn}.id', ${ln.lcs}->id);
-        ${ln.lcs}Data = $query->first();
-
+    controller_code += f"""        $query->where('{ln.tn}.id', ${ln.lcs}->id);
+        ${ln.lcs}Data = $query->first();\n        
+        
+        
+        
         return inertia("{ln.model_class_name}/Show", [
-            "{ln.lcs}" => new {ln.model_class_name}Resource(${ln.lcs}Data),\n"""
-    controller_code += f"""        ]);
+            """
+    controller_code += f""""{ln.lcs}" => new {ln.model_class_name}Resource(${ln.lcs}Data),\n"""
+    if len(has_many_arr) > 0:
+        for has_many_string in has_many_arr:
+            controller_code += has_many_string;
+    controller_code += f"""            'queryParams' => request()->query() ?: null\n]);
     }}
 
     /**
@@ -174,7 +223,16 @@ class {ln.web_controller_class_name} extends Controller
         controller_code += ' ' * 12  + f"""->select ('{ln.tn}.*', {comma_separated_list});"""
     controller_code += f"""
         $query->where('{ln.tn}.id', ${ln.lcs}->id);
-        ${ln.lcs}Data = $query->first();"""
+        ${ln.lcs}Data = $query->first();
+        
+        $referrer = url()->previous();
+        $route = app('router')->getRoutes()->match(request()->create($referrer));
+        
+        session()->put('previous_route', [
+            'name' => $route->getName(),
+            'params' => $route->parameters()
+        ]);
+"""
     for fk_meta in belongs_to_list:
         if fk_meta['column_name'] in ignore_columns:
             continue
@@ -202,8 +260,10 @@ class {ln.web_controller_class_name} extends Controller
         $data = $request->validated();
         ${ln.lcs}->update($data);
 
-        return to_route('{ln.lcs}.index')
-            ->with('success', "{ln.model_class_name} \\"${ln.lcs}->{utilities.get_first_textlike_column(columns, ignore_columns)}\\" was updated");
+        $previousRoute = session()->pull('previous_route', ['name' => 'location.index', 'params' => []]);
+
+        return to_route($previousRoute['name'], $previousRoute['params'])
+            ->with('success', "{ln.model_class_name} \\"${ln.lcs}->{utilities.any_case_to_title( utilities.get_first_textlike_column(columns, ignore_columns))}\\" was updated");
     }}
 
     /**
@@ -216,7 +276,10 @@ class {ln.web_controller_class_name} extends Controller
         if (${ln.lcs}->image_path) {{
             Storage::disk('public')->deleteDirectory(dirname(${ln.lcs}->image_path));
         }}
-        return to_route('{ln.lcs}.index')
+        $referrer = url()->previous();
+        $route = app('router')->getRoutes()->match(request()->create($referrer));
+
+        return to_route($route->getName(), $route->parameters())
             ->with('success', "{ln.model_class_name} \\"$name\\" was deleted");
     }}
 }}
