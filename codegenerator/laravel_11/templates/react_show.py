@@ -35,19 +35,25 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
     belongs_to_many_interfaces = ""
     if len(belongs_to_many_list) > 0:
         for belongs_to_many in belongs_to_many_list:
-            code += f"""import {utilities.any_case_to_pascal_case(utilities.singular(belongs_to_many['table_name']))} from "../{utilities.any_case_to_pascal_case(utilities.singular(belongs_to_many['table_name']))}/DataTable"; \n"""
-            comma_separated_belongs_to_many_list += f"""{belongs_to_many['table_name']}, """
+            join_table_name = utilities.join_table_name(belongs_to_many['table_name'], ln.tn)
+            code += f"""import {utilities.any_case_to_pascal_case(utilities.singular(join_table_name))} from "../{utilities.any_case_to_pascal_case(utilities.singular(join_table_name))}/DataTable"; \n"""
+            comma_separated_belongs_to_many_list += f"""{join_table_name}, """
             btm_query_params_interface_string += f"""    {belongs_to_many['table_name']}_sort_fields: string;\n    {belongs_to_many['table_name']}_sort_direction: string ;\n"""
-            props_belongs_to_many_string += f"""    {belongs_to_many['table_name']}: {utilities.lower_case_single(belongs_to_many['table_name'])}[];\n"""
+            props_belongs_to_many_string += f"""    {join_table_name}: {{
+                    data: {utilities.any_case_to_camel_case(join_table_name)}[];
+                    meta: {{
+                        links: PaginationLinks[];
+                        }};
+                    }};\n"""
             btm_included_components += f"""                <Paper className="p-4 mt-5 sm:p-8 bg-white dark:bg-gray-800 shadow sm:rounded-lg">
-                    <{utilities.any_case_to_pascal_case(utilities.singular(belongs_to_many['table_name']))}
+                    <{utilities.any_case_to_pascal_case(utilities.singular(join_table_name))}
                         auth={{auth}}
-                        {belongs_to_many['table_name']}={{ {belongs_to_many['table_name']} }}
+                        {join_table_name}={{ {join_table_name} }}
                         queryParams={{queryParams}}
                         success={{success}}
                     />
                 </Paper>\n"""
-            belongs_to_many_interfaces += utilities.get_interface_info_from_table_name(connection, belongs_to_many['table_name'], ignore_columns)
+            belongs_to_many_interfaces += utilities.get_interface_info_from_table_name_with_belongs_to_list(connection, utilities.join_table_name(belongs_to_many['table_name'], ln.tn), ignore_columns)
     code += f"""
 export interface User {{
     id: number;
@@ -58,6 +64,12 @@ export interface User {{
 
 export interface Auth {{
     user: User;
+}}
+
+interface PaginationLinks {{
+    url: string | null;
+    label: string;
+    active: boolean;
 }}
 
 {react_show_utilities.get_own_interface(columns, ignore_columns, belongs_to_list, ln)}

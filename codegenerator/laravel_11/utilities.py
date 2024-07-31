@@ -1,6 +1,7 @@
 import inflect
 import re
 from mysql.connector.connection import MySQLConnection
+from codegenerator.laravel_11 import model_utilities
 from pprint import pprint
 
 p = inflect.engine()
@@ -667,6 +668,39 @@ def get_interface_info_from_table_name(connection: MySQLConnection, table_name: 
         typescript_type = get_typescript_type_from_column_type(data_type)
         return_string += f"    {column_name}: {typescript_type};\n"
 
+    return_string += "}\n"
+    cursor.close()
+    return return_string
+
+
+def get_interface_info_from_table_name_with_belongs_to_list(connection: MySQLConnection, table_name: str, ignore_columns):
+    belongs_to_list = model_utilities.belongs_to(connection, table_name)
+    cursor = connection.cursor()
+    query = """
+    SELECT COLUMN_NAME, DATA_TYPE
+    FROM INFORMATION_SCHEMA.COLUMNS JOIN INFORMATION_SCHEMA.TABLES ON (COLUMNS.TABLE_NAME = TABLES.TABLE_NAME AND COLUMNS.TABLE_SCHEMA = TABLES.TABLE_SCHEMA)
+    WHERE COLUMNS.TABLE_NAME = %s
+    AND COLUMNS.TABLE_SCHEMA = %s
+    AND TABLES.TABLE_TYPE = 'BASE TABLE'
+    ORDER BY COLUMNS.ORDINAL_POSITION
+    """
+
+    cursor.execute(query, (table_name, connection.database))
+    results = cursor.fetchall()
+
+    return_string = f"interface {any_case_to_camel_case(singular(table_name))} {{\n"
+
+    for row in results:
+        column_name = row[0]
+        if column_name in ignore_columns:
+            continue
+        data_type = row[1]
+        typescript_type = get_typescript_type_from_column_type(data_type)
+        return_string += f"    {column_name}: {typescript_type};\n"
+    for belongs_to_item in belongs_to_list:
+        table_name = belongs_to_item['table_name']
+        first_text_col = model_utilities.get_first_text_like_column_from_table_name(connection, table_name)
+        return_string += f"    {table_name}{first_text_col}: string;\n"
     return_string += "}\n"
     cursor.close()
     return return_string
