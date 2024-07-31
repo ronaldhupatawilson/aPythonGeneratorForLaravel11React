@@ -109,13 +109,13 @@ export default function Index({{ auth, {ln.lctn}, queryParams = {{}}, success }}
     <AuthenticatedLayout
       user={{auth.user}}
       header={{
-        <Box className="flex justify-between items-center">
+        <Box className="flex justify-between items-center p-2">
           <Typography variant="h6" className="text-gray-800 dark:text-gray-200">
             {ln.title}
           </Typography>
           <Link
             href={{route('{ln.lcs}.create')}}
-            className="bg-emerald-500 py-1 px-3 text-white rounded shadow transition-all hover:bg-emerald-600"
+            className="bg-lime-400 py-1 px-3 text-black hover:text-white rounded shadow transition-all hover:bg-lime-800"
           >
             Add new
           </Link>
@@ -151,7 +151,7 @@ export default function Index({{ auth, {ln.lctn}, queryParams = {{}}, success }}
                   {{{ln.lctn}.data.map(({ln.lcs}) => (
                     <TableRow key={{{ln.lcs}.id}} 
                                             className={{`even:bg-gray-100 dark:even:bg-gray-800
-                                            hover:bg-red-500 hover:text-white
+                                            hover:bg-lime-200 hover:text-white
                                             cursor-pointer transition-colors duration-150 ease-in-out
                                         `}}
                                             onClick={{() =>

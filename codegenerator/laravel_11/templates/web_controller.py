@@ -1,5 +1,7 @@
 from codegenerator.laravel_11 import utilities
 from codegenerator.laravel_11 import model_utilities
+from codegenerator.laravel_11 import controller_utilities
+
 
 def get_web_controller_file_content(ln, ci,columns, ignore_columns, belongs_to_list, has_many_list, has_many_through_list, connection):
     controller_code = f"""<?php
@@ -19,8 +21,8 @@ use App\\Http\\Resources\\{ln.resource_class_name};
         controller_code += f"use App\\Http\\Requests\\{utilities.model_class_name_from_table_name(item['table_name'])}Request;\n"
         controller_code += f"use App\\Http\\Resources\\{utilities.model_class_name_from_table_name(item['table_name'])}Resource;\n"
     for item in has_many_through_list:
-        controller_code += f"use App\\Http\\Requests\\{utilities.model_class_name_from_table_name(item['table_name'])}Request;\n"
-        controller_code += f"use App\\Http\\Resources\\{utilities.model_class_name_from_table_name(item['table_name'])}Resource;\n"
+        controller_code += f"use App\\Http\\Resources\\{utilities.model_class_name_from_table_name(utilities.join_table_name(item['table_name'],ln.tn))}Resource;\n"
+        controller_code += f"use App\\Models\\{utilities.model_class_name_from_table_name(utilities.join_table_name(item['table_name'],ln.tn))};\n"
 
     controller_code += f"""
 class {ln.web_controller_class_name} extends Controller
@@ -152,21 +154,13 @@ class {ln.web_controller_class_name} extends Controller
             """
     belongs_to_many_arr = []
     if len(has_many_through_list) > 0:
-        for belongs_to_many_info in has_many_list:
-            var_name = belongs_to_many_info['table_name']
-            resource_name = utilities.any_case_to_pascal_case((utilities.singular(belongs_to_many_info['table_name'])))
+        for belongs_to_many_info in has_many_through_list:
+            var_name = utilities.join_table_name(belongs_to_many_info['table_name'], ln.tn)
+            resource_name = utilities.any_case_to_pascal_case((utilities.singular(var_name)))
             prop_string = f"""            '{var_name}' => {resource_name}Resource::collection(${var_name}),\n"""
             belongs_to_many_arr.append(prop_string)
-            controller_code += f"""
-        $query = ${ln.lcs}->{var_name}();
-        ${var_name}_sortField = request("{var_name}_sort_field", 'id');
-        ${var_name}_sortDirection = request("{var_name}_sort_direction", "desc");
-        ${var_name} = $query->orderBy(${var_name}_sortField, ${var_name}_sortDirection)
-            ->paginate(20)
-            ->onEachSide(1);
-            """
-
-
+            where_string = f"""$query->where('{ln.tn}.id', ${ln.lcs}->id);\n"""
+            controller_code += controller_utilities.get_show_segment_for_belongs_to_many_table_named(var_name, ignore_columns, connection, where_string)
 
     controller_code += f"""\n\n        $query = {ln.model_class_name}::query();\n"""
     if len(belongs_to_list) > 0:
@@ -184,7 +178,7 @@ class {ln.web_controller_class_name} extends Controller
             select_ref.append(select_ref_item)
             is_first = False
         comma_separated_list = ", ".join(select_ref)
-        controller_code += ' ' * 12  + f"""->select ('{ln.tn}.*', {comma_separated_list});"""
+        controller_code += ' ' * 12  + f"""->select ('{ln.tn}.*', {comma_separated_list});\n"""
     controller_code += f"""        $query->where('{ln.tn}.id', ${ln.lcs}->id);
         ${ln.lcs}Data = $query->first();\n        
         
@@ -196,7 +190,10 @@ class {ln.web_controller_class_name} extends Controller
     if len(has_many_arr) > 0:
         for has_many_string in has_many_arr:
             controller_code += has_many_string;
-    controller_code += f"""            'queryParams' => request()->query() ?: null\n]);
+    if len(belongs_to_many_arr) > 0:
+        for belongs_to_many_string in belongs_to_many_arr:
+            controller_code += belongs_to_many_string;
+    controller_code += f"""\n            'queryParams' => request()->query() ?: null\n]);
     }}
 
     /**

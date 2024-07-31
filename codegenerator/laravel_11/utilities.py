@@ -434,16 +434,10 @@ def get_resource_array(columns, ignore_columns, belongs_to_list, has_many_list, 
             return_string += ' ' * 11 + f"""
             '{any_case_to_camel_case(has_many_item['table_name'])}' => new {any_case_to_pascal_case(singular(has_many_item['table_name']))}Resource($this->{any_case_to_camel_case(singular(has_many_item['table_name']))}),\n"""
 
-    if len(has_many_through_list) > 0:
-        for has_many_through_item in has_many_through_list:
-            function_name = has_many_through_item['table_name']
-            return_string += ' ' * 11 + f""" 
-            '{function_name}' => $this->when($this->relationLoaded('{function_name}'), function () {{
-                return [
-                    'id' => $this->{function_name}->id,
-                    '{has_many_through_item['view_column']}' => $this->{function_name}->{has_many_through_item['view_column']}
-                ];
-            }}),\n"""
+    # if len(has_many_through_list) > 0:
+    #     for has_many_through_item in has_many_through_list:
+    #         tn = has_many_through_item['table_name']
+    #         return_string += ' ' * 11 + f"""'{tn}' => {singular(tn)}Resource::collection($this->{tn}),\n"""
 
     return return_string
 
