@@ -360,6 +360,11 @@ def get_first_textlike_column(columns, ignore_columns):
             continue
         if column['DATA_TYPE'] in ['varchar', 'char', 'smalltext', 'text', 'mediumtext', 'largetext']:
             return column['COLUMN_NAME']
+    for column in columns:
+        if column['COLUMN_NAME'] in ignore_columns:
+            continue
+        if column['DATA_TYPE'] in ['date', 'time', 'datetime', 'timestamp']:
+            return column['COLUMN_NAME']
     return get_primary_key_column(columns)
 
 

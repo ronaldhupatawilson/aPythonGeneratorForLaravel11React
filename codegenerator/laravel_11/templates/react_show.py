@@ -21,7 +21,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
             included_components += f"""                <Paper className="p-4 mt-5 sm:p-8 bg-white dark:bg-gray-800 shadow sm:rounded-lg">
                     <{utilities.any_case_to_pascal_case(utilities.singular(has_many['table_name']))}
                         auth={{auth}}
-                        {has_many['table_name']}={{ {has_many['table_name']} }}
+                        {has_many['table_name'].lower()}={{ {has_many['table_name']} }}
                         queryParams={{queryParams}}
                         success={{success}}
                     />

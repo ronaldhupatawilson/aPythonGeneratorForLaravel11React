@@ -45,8 +45,8 @@ interface IndexProps {{
   auth: {{
     user: User;
   }};
-  {ln.tn}: {{
-    data: {ln.cfs}[];
+  {ln.lctn}: {{
+    data: {ln.model_class_name}[];
     meta: {{
       links: PaginationLinks[];
     }};
@@ -55,7 +55,7 @@ interface IndexProps {{
   success?: string;
 }}
 
-export default function Index({{ auth, {ln.tn}, queryParams = {{}}, success }}: IndexProps) {{
+export default function Index({{ auth, {ln.lctn}, queryParams = {{}}, success }}: IndexProps) {{
  
   
     const defaultQueryParams = {{
@@ -144,7 +144,7 @@ export default function Index({{ auth, {ln.tn}, queryParams = {{}}, success }}: 
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {{{ln.tn}.data.map(({ln.tns}) => (
+                  {{{ln.lctn}.data.map(({ln.tns}) => (
                     <TableRow key={{{ln.tns}.id}} 
                                             className={{`even:bg-gray-100 dark:even:bg-gray-800
                                             hover:bg-lime-200 hover:text-white
@@ -188,7 +188,7 @@ export default function Index({{ auth, {ln.tn}, queryParams = {{}}, success }}: 
                 </TableBody>
               </Table>
             </TableContainer>
-            <Pagination links={{{ln.tn}.meta.links}} />
+            <Pagination links={{{ln.lctn}.meta.links}} />
           </Box>
         </Paper>
       </Container>

@@ -21,12 +21,31 @@ def get_first_text_like_column_from_table_name(connection: MySQLConnection, tabl
     cursor.execute(query, (table_name, connection.database))
 
     result = cursor.fetchone()
-    cursor.close()
 
     if result:
+        cursor.close()
         return result[0]
     else:
-        return "id"
+        query = """
+        SELECT COLUMN_NAME
+        FROM INFORMATION_SCHEMA.COLUMNS JOIN INFORMATION_SCHEMA.TABLES ON (COLUMNS.TABLE_NAME = TABLES.TABLE_NAME AND COLUMNS.TABLE_SCHEMA = TABLES.TABLE_SCHEMA)
+        WHERE COLUMNS.TABLE_NAME = %s
+        AND COLUMNS.TABLE_SCHEMA = %s
+        AND TABLES.TABLE_TYPE = 'BASE TABLE'
+        AND COLUMNS.DATA_TYPE IN ('time','datetime','date','timestamp')
+        ORDER BY COLUMNS.ORDINAL_POSITION
+        LIMIT 0,1
+        """
+
+        cursor.execute(query, (table_name, connection.database))
+
+        result = cursor.fetchone()
+        cursor.close()
+
+        if result:
+            return result[0]
+        else:
+            return "id"
 
 
 def has_many(connection: MySQLConnection, table_name: str) -> List[str]:
