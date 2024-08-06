@@ -592,7 +592,7 @@ def get_react_index_table_search_headings(columns, ignore_columns, belongs_to_li
                                                         e.target.value
                                                     )
                                                 }}
-                                                onKeyPress={{(e) =>
+                                                onKeyPress={{(e: React.KeyboardEvent<HTMLInputElement>) =>
                                                     onKeyPress("{col_name}", e)
                                                 }}
                                             />

@@ -17,7 +17,12 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
             code += f"""import {utilities.any_case_to_pascal_case(utilities.singular(has_many['table_name']))} from "../{utilities.any_case_to_pascal_case(utilities.singular(has_many['table_name']))}/DataTable"; \n"""
             comma_separated_has_many_list += f"""{has_many['table_name']}, """
             query_params_interface_string += f"""    {has_many['table_name']}_sort_fields: string;\n    {has_many['table_name']}_sort_direction: string ;\n"""
-            props_has_many_string += f"""    {has_many['table_name']}: {utilities.lower_case_single(has_many['table_name'])}[];\n"""
+            props_has_many_string += f"""    {has_many['table_name']}: {{
+            data: {utilities.lower_case_single(has_many['table_name'])}[];
+            meta: {{
+                links: PaginationLinks[];
+            }};
+        }}\n"""
             included_components += f"""                <Paper className="p-4 mt-5 sm:p-8 bg-white dark:bg-gray-800 shadow sm:rounded-lg">
                     <{utilities.any_case_to_pascal_case(utilities.singular(has_many['table_name']))}
                         auth={{auth}}
@@ -40,7 +45,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
             comma_separated_belongs_to_many_list += f"""{join_table_name}, """
             btm_query_params_interface_string += f"""    {belongs_to_many['table_name']}_sort_fields: string;\n    {belongs_to_many['table_name']}_sort_direction: string ;\n"""
             props_belongs_to_many_string += f"""    {join_table_name}: {{
-                    data: {utilities.any_case_to_camel_case(join_table_name)}[];
+                    data: {utilities.any_case_to_camel_case(utilities.singular(join_table_name))}[];
                     meta: {{
                         links: PaginationLinks[];
                         }};
@@ -78,17 +83,12 @@ interface PaginationLinks {{
 
 {belongs_to_many_interfaces}
 
-interface QueryParams {{
-    sort_field: string;
-    sort_direction: string;
-{query_params_interface_string}
-{btm_query_params_interface_string}
-}}
 
 interface Props {{
     auth: Auth;
-    {ln.lcs}: {ln.lcs};
-{props_has_many_string} {props_belongs_to_many_string}    queryParams: QueryParams | null;
+    {ln.lcs}: {utilities.any_case_to_camel_case(ln.lcs)};
+{props_has_many_string} {props_belongs_to_many_string}    
+    queryParams?: Record<string, string> | null;
     success: string;
 }}
 

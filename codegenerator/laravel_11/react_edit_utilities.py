@@ -26,7 +26,7 @@ def get_formdata_interface(columns, ignore_columns):
     for column in columns:
         if column['COLUMN_NAME'] in ignore_columns:
             continue
-        ret_string += " " * 4 + f"""{column['COLUMN_NAME']}: {get_typescript_type_from_column_type(column['DATA_TYPE'])} | null;\n"""
+        ret_string += " " * 4 + f"""{column['COLUMN_NAME']}: {get_typescript_type_from_column_type(column['DATA_TYPE'])};\n"""
     return ret_string
 
 
@@ -46,6 +46,9 @@ def get_create_form_fields(columns, ignore_columns, belongs_to_list, connection)
         if column['COLUMN_NAME'] in ignore_columns or column['COLUMN_NAME'] == 'id':
             continue
         ret_string += f"""<div className="p-6">\n"""
+        target_value = """e.target.value"""
+        if column['DATA_TYPE'] in ['bigint', 'int', 'tinyint', 'decimal', 'double', 'smallint', 'float']:
+            target_value = """parseInt( e.target.value)"""
         if column['COLUMN_NAME'].split('/')[-1].lower() == 'path':
             ret_string += f"""
                       <Box className="mb-4">
@@ -80,7 +83,7 @@ def get_create_form_fields(columns, ignore_columns, belongs_to_list, connection)
                             <Select
                                 value={{data.{column['COLUMN_NAME']} }}
                                 onChange={{(e) =>
-                                    setData("{column['COLUMN_NAME']}", e.target.value)
+                                    setData("{column['COLUMN_NAME']}", e.target.value as number)
                                 }}
                                 error={{!!errors.{column['COLUMN_NAME']}}}
                             >
@@ -101,7 +104,7 @@ def get_create_form_fields(columns, ignore_columns, belongs_to_list, connection)
               fullWidth
               label="{utilities.any_case_to_title(column['COLUMN_NAME'])}"
               value={{data.{column['COLUMN_NAME']}}}
-              onChange={{(e) => setData('{column['COLUMN_NAME']}', e.target.value)}}
+              onChange={{(e) => setData('{column['COLUMN_NAME']}', {target_value})}}
               error={{!!errors.{column['COLUMN_NAME']}}}
               helperText={{errors.{column['COLUMN_NAME']}}}
               className="my-4"

@@ -1,4 +1,4 @@
-from codegenerator.laravel_11.utilities import react_index_table_data_cells, get_react_index_table_headings, get_react_index_table_search_headings
+from codegenerator.laravel_11.utilities import any_case_to_camel_case, react_index_table_data_cells, get_react_index_table_headings, get_react_index_table_search_headings
 
 def get_index_code(ln, ci, columns, ignore_columns, belongs_to_list, has_many_list, has_many_through_list):
     code = f"""import React from 'react';
@@ -38,7 +38,11 @@ interface PaginationLinks {{
 
 
 interface {ln.model_class_name} {{
-{ ci.typescript_interface_fields }
+{ ci.typescript_interface_fields }"""
+    for belongs_to_list_item in belongs_to_list:
+        cap_string = f"{belongs_to_list_item['table_name']}{belongs_to_list_item['view_column']}"
+        code += f"""        {any_case_to_camel_case(cap_string)}: string;\n"""
+    code += f"""
 }}
 
 interface IndexProps {{
@@ -46,7 +50,7 @@ interface IndexProps {{
     user: User;
   }};
   {ln.lctn}: {{
-    data: {ln.cfs}[];
+    data: {ln.model_class_name}[];
     meta: {{
       links: PaginationLinks[];
     }};
@@ -64,13 +68,13 @@ export default function Index({{ auth, {ln.lctn}, queryParams = {{}}, success }}
     }};
 
     // Merge the provided queryParams (if any) with the default values
-    const mergedQueryParams = {{
+    const mergedQueryParams : {{ [key: string]: string }}  = {{
         ...defaultQueryParams,
         ...(queryParams || {{}}),
     }};
 
    const searchFieldChanged = (name: string, value: string) => {{
-    const newQueryParams = {{ ...mergedQueryParams }};
+    const newQueryParams : {{ [key: string]: string }}  = {{ ...mergedQueryParams }};
     if (value) {{
       newQueryParams[name] = value;
     }} else {{
@@ -88,7 +92,7 @@ export default function Index({{ auth, {ln.lctn}, queryParams = {{}}, success }}
   }};
 
   const sortChanged = (name: string) => {{
-        const newQueryParams = {{ ...mergedQueryParams }};
+        const newQueryParams : {{ [key: string]: string }} = {{ ...mergedQueryParams }};
     if (name === newQueryParams.sort_field) {{
       newQueryParams.sort_direction = newQueryParams.sort_direction === 'asc' ? 'desc' : 'asc';
     }} else {{
@@ -98,7 +102,7 @@ export default function Index({{ auth, {ln.lctn}, queryParams = {{}}, success }}
     router.get(route('{ln.lcs}.index'), newQueryParams);
   }};
 
-  const delete{ln.cfs} = ({ln.lcs}: {ln.cfs}) => {{
+  const delete{ln.cfs} = ({ln.lcs}: {ln.model_class_name}) => {{
     if (!window.confirm('Are you sure you want to delete the {ln.lcs}?')) {{
       return;
     }}

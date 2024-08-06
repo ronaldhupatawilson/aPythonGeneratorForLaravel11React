@@ -80,6 +80,10 @@ def get_own_interface(columns, ignore_columns, belongs_to_list, ln):
             continue
         ret_string += f"""  {(fk['table_name']+fk['view_column']).lower()}: string
   """
+    for belongs_to_list_item in belongs_to_list:
+        ret_string += f"""     {belongs_to_list_item['table_name'].lower()}? : {{ 
+            {belongs_to_list_item['view_column']} : string;
+        }};\n"""
     ret_string += """ } """
     return ret_string
 

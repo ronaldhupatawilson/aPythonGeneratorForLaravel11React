@@ -114,7 +114,7 @@ def main():
     completed_tables = []
     default_output_folder_path = 'c:\\projects\\performance-everyday\\' #os.path.dirname(os.path.realpath(__file__))+'\\output\\'
     default_ignore_tables = ['cache', 'cache_locks', 'failed_jobs', 'jobs', 'sessions', 'job_batches', 'migrations', 'password_reset_tokens', 'personal_access_tokens', 'users']
-    default_ignore_columns = ['user_id', 'created_at', 'updated_at', 'deleted_at','createdBy_user_id','lastUpdatedBy_user_id','lastUpdatedByReal_user_id']
+    default_ignore_columns = ['user_id', 'created_at', 'updated_at', 'deleted_at', 'createdBy_user_id', 'locked', 'lastUpdatedBy_user_id','lastUpdatedByReal_user_id']
     default_cache_system = 'redis'
     default_use_inertia = 'true'
 

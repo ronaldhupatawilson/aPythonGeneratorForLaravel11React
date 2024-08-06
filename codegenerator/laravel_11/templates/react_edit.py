@@ -33,6 +33,7 @@ export interface Auth {{
 
 interface FormData {{
 {react_edit_utilities.get_formdata_interface(columns, ignore_columns)}
+    _method: string;
 }}
 
 interface {utilities.any_case_to_camel_case(ln.lcs)} {{

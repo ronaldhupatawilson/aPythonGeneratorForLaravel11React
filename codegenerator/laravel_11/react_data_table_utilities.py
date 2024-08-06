@@ -53,12 +53,13 @@ def react_index_table_data_cells(columns, ignore_columns, table_name, belongs_to
         if column['COLUMN_NAME'] == 'id':
             continue
         col_name = column['COLUMN_NAME']
+        name_string = f"""{table_name}.{col_name}"""
         if utilities.remove_id_suffix(column['COLUMN_NAME']) != column['COLUMN_NAME']:
             table_nm = utilities.get_table_name_from_fk_column_name(column['COLUMN_NAME'], belongs_to_list, ignore_columns).lower()
             col_nm = get_first_text_like_column_from_table_name(connection, table_nm)
-            col_name = f"{table_nm}.{col_nm}"
+            name_string = f"{table_name}.{table_nm} && {table_name}.{table_nm}.{col_nm}"
         return_string += " " * 20 + f"""<TableCell>
-                      {{ {table_name}.{col_name} }}
+                      {{ {name_string} }}
                     </TableCell>\n"""
     return return_string
 
@@ -109,7 +110,7 @@ def get_react_index_table_search_headings(columns, ignore_columns, belongs_to_li
                                                         e.target.value
                                                     )
                                                 }}
-                                                onKeyPress={{(e) =>
+                                                onKeyPress={{(e: React.KeyboardEvent<HTMLInputElement>) =>
                                                     onKeyPress("{col_name}", e)
                                                 }}
                                             />
